@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS FinOps Report — {{ scan_time }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a2e;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        /* Summary Cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            font-size: 0.85rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a73e8;
+        }
+        .card .value.savings {
+            color: #0d9488;
+        }
+        .card .value.waste {
+            color: #dc2626;
+        }
+
+        /* Chart placeholder */
+        .chart-section {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .chart-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #1a1a2e;
+        }
+        .chart-placeholder {
+            text-align: center;
+            color: #999;
+            padding: 3rem;
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+        }
+        .chart-placeholder p {
+            margin-bottom: 0.5rem;
+        }
+        .chart-placeholder small {
+            font-size: 0.8rem;
+        }
+
+        /* Account sections */
+        .section {
+            margin-bottom: 2rem;
+        }
+        .section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            color: #1a1a2e;
+        }
+        .section .account-summary {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .section .account-summary strong {
+            color: #333;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+        }
+        th {
+            background: #f8fafc;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover {
+            background: #f8fafc;
+        }
+        td .resource-id {
+            font-weight: 600;
+            color: #1a73e8;
+        }
+        td .resource-name {
+            font-size: 0.8rem;
+            color: #999;
+        }
+        td.cost {
+            text-align: right;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+        td.savings {
+            text-align: right;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-weight: 600;
+            color: #0d9488;
+        }
+
+        /* Severity badges */
+        .severity-critical {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        .severity-high {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        .severity-medium {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #fffbeb;
+            color: #d97706;
+        }
+        .severity-low {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ecfdf5;
+            color: #059669;
+        }
+
+        /* Errors */
+        .errors {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #fef2f2;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+        }
+        .errors strong {
+            color: #991b1b;
+        }
+        .errors ul {
+            margin-top: 0.5rem;
+            margin-left: 1.5rem;
+        }
+        .errors li {
+            color: #991b1b;
+            font-size: 0.9rem;
+        }
+
+        /* No findings */
+        .no-findings {
+            padding: 2rem;
+            text-align: center;
+            color: #059669;
+            background: #ecfdf5;
+            border-radius: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        @media print {
+            body { background: white; }
+            .container { max-width: 100%; padding: 1rem; }
+            .card { box-shadow: none; border: 1px solid #e5e7eb; }
+            table { box-shadow: none; border: 1px solid #e5e7eb; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AWS FinOps Report</h1>
+        <p class="subtitle">
+            Scan: {{ scan_time }} | Accounts scanned: {{ accounts|length }}
+        </p>
+
+        <!-- Summary Cards -->
+        <div class="summary">
+            <div class="card">
+                <h3>Total Findings</h3>
+                <div class="value">{{ total_findings }}</div>
+            </div>
+            <div class="card">
+                <h3>Monthly Waste Found</h3>
+                <div class="value waste">${{ "%.2f"|format(total_monthly_savings) }}</div>
+            </div>
+            <div class="card">
+                <h3>Potential Annual Savings</h3>
+                <div class="value savings">${{ "%.2f"|format(total_annual_savings) }}</div>
+            </div>
+            <div class="card">
+                <h3>Accounts Scanned</h3>
+                <div class="value">{{ accounts|length }}</div>
+            </div>
+        </div>
+
+        <!-- Savings by Category (Chart Placeholder) -->
+        <div class="chart-section">
+            <h2>Savings by Category</h2>
+            <div class="chart-placeholder">
+                <p>Pie chart: savings breakdown by check category</p>
+                <small>
+                    Integrate <a href="https://www.chartjs.org/">Chart.js</a> or
+                    <a href="https://d3js.org/">D3.js</a> here for interactive visualization.
+                </small>
+                <br><br>
+                <small>
+                    Categories: EC2 Right-Sizing | NAT Gateway | Spot Candidates |
+                    Unused Resources | Reserved Instances | ElastiCache | RDS Right-Sizing
+                </small>
+            </div>
+        </div>
+
+        <!-- Per-Account Results -->
+        {% for account in accounts %}
+        <div class="section">
+            <h2>{{ account.account_name }} ({{ account.account_id }}) &mdash; {{ account.region }}</h2>
+
+            <div class="account-summary">
+                <span>Findings: <strong>{{ account.findings|length }}</strong></span>
+                <span>Monthly Savings: <strong>${{ "%.2f"|format(account.total_monthly_savings) }}</strong></span>
+            </div>
+
+            {% if account.findings %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Type</th>
+                        <th>Check</th>
+                        <th style="text-align: right;">Current Cost/mo</th>
+                        <th>Recommended Action</th>
+                        <th style="text-align: right;">Est. Savings/mo</th>
+                        <th>Severity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in account.findings %}
+                    <tr>
+                        <td>
+                            <span class="resource-id">{{ f.resource_id }}</span><br>
+                            <span class="resource-name">{{ f.resource_name }}</span>
+                        </td>
+                        <td>{{ f.resource_type }}</td>
+                        <td>{{ f.check_name }}</td>
+                        <td class="cost">${{ "%.2f"|format(f.current_monthly_cost) }}</td>
+                        <td>{{ f.recommended_action }}</td>
+                        <td class="savings">${{ "%.2f"|format(f.estimated_monthly_savings) }}</td>
+                        <td><span class="severity-{{ f.severity }}">{{ f.severity|upper }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-findings">
+                No optimization opportunities found. This account looks well-optimized.
+            </div>
+            {% endif %}
+
+            {% if account.errors %}
+            <div class="errors">
+                <strong>Errors during scan:</strong>
+                <ul>
+                    {% for error in account.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="footer">
+            Generated by <strong>aws-finops-toolkit</strong> |
+            <a href="https://github.com/junegunn/aws-finops-toolkit">GitHub</a> |
+            {{ scan_time }}
+        </div>
+    </div>
+</body>
+</html>
