@@ -1,0 +1,36 @@
+# aws-finops-toolkit default configuration
+#
+# Copy this file to finops.yaml in your project root and customize.
+# CLI flags override these settings.
+
+thresholds:
+  ec2_cpu_avg_percent: 20       # Flag EC2 instances with avg CPU below this %
+  ec2_lookback_days: 14         # CloudWatch metrics lookback window (days)
+  snapshot_age_days: 90         # Flag EBS snapshots older than this (days)
+  idle_lb_days: 7               # Flag load balancers with 0 connections for this many days
+  stopped_instance_days: 7      # Flag stopped EC2 instances older than this (days)
+
+# AWS accounts to scan. Leave empty to require --profile or --org CLI flags.
+# Supports two formats:
+#   - Simple: just the profile name
+#   - Detailed: profile + human-readable name
+#
+# accounts:
+#   - profile: dev
+#     name: Development
+#   - profile: staging
+#     name: Staging
+#   - profile: production
+#     name: Production
+accounts: []
+
+# Enable or disable individual checks.
+# All checks are enabled by default.
+checks:
+  ec2_rightsizing: true
+  nat_gateway: true
+  spot_candidates: true
+  unused_resources: true
+  reserved_instances: true
+  elasticache_scheduling: true
+  rds_rightsizing: true

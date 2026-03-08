@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-finops-toolkit"
+version = "0.1.0"
+description = "CLI tool that scans AWS accounts and identifies cost optimization opportunities"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "June Gu", email = "junegu@example.com"},
+]
+keywords = ["aws", "finops", "cost-optimization", "cloud", "devops", "sre"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "boto3>=1.28.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
+    "moto>=4.0",
+    "boto3-stubs[essential]>=1.28.0",
+]
+
+[project.scripts]
+finops = "finops.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/junegunn/aws-finops-toolkit"
+Repository = "https://github.com/junegunn/aws-finops-toolkit"
+Issues = "https://github.com/junegunn/aws-finops-toolkit/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.flake8]
+max-line-length = 120
+exclude = [".git", "__pycache__", "build", "dist", "venv"]
