@@ -1,9 +1,10 @@
 """CLI entry point for aws-finops-toolkit.
 
-Provides three main commands:
-  - scan:   Run cost optimization checks against AWS accounts
-  - report: Generate reports from scan results (HTML, CSV, JSON)
-  - watch:  Schedule periodic scans with cron-like scheduling
+Provides four main commands:
+  - preflight: Analyze a target resource before any cost optimization (9 checks)
+  - scan:      Run cost optimization checks against AWS accounts
+  - report:    Generate reports from scan results (HTML, CSV, JSON)
+  - watch:     Schedule periodic scans with cron-like scheduling
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from finops import __version__
 from finops.config import load_config, FinOpsConfig
 from finops.scanner import Scanner
 from finops.report import ReportGenerator
+from finops.preflight import PreflightAnalyzer, Verdict
 
 console = Console()
 
@@ -39,6 +41,132 @@ def main(ctx: click.Context, config: Optional[str]) -> None:
     ctx.ensure_object(dict)
     config_path = Path(config) if config else None
     ctx.obj["config"] = load_config(config_path)
+
+
+@main.command()
+@click.option(
+    "--target", "-t",
+    type=str,
+    required=True,
+    help="Target resource (instance ID, DB identifier, or service name).",
+)
+@click.option(
+    "--profile", "-p",
+    type=str,
+    required=True,
+    help="AWS profile for the target account.",
+)
+@click.option(
+    "--region", "-r",
+    type=str,
+    default=None,
+    help="AWS region. Defaults to profile default or us-east-1.",
+)
+@click.option(
+    "--apm",
+    type=click.Choice(["signoz", "datadog", "prometheus"]),
+    default=None,
+    help="APM provider for SLO/error budget data.",
+)
+@click.option(
+    "--apm-endpoint",
+    type=str,
+    default=None,
+    help="APM API endpoint URL (e.g., http://signoz.internal:3301).",
+)
+@click.option(
+    "--output", "-o",
+    type=click.Path(),
+    default=None,
+    help="Save pre-flight results to JSON file.",
+)
+@click.pass_context
+def preflight(
+    ctx: click.Context,
+    target: str,
+    profile: str,
+    region: str,
+    apm: Optional[str],
+    apm_endpoint: Optional[str],
+    output: Optional[str],
+) -> None:
+    """Run pre-flight analysis before optimizing a resource.
+
+    Performs 9 checks: traffic, QoS/SLOs, cache dependency, incident history,
+    access validation, target mapping, traffic patterns, priority/freeze status,
+    and RI/SP coverage.
+
+    Returns a GO / WAIT / STOP verdict with specific findings.
+
+    Examples:
+
+        finops preflight --target pn-sh-rds-prod --profile dodo-dev
+
+        finops preflight -t i-0abc123 -p prod --apm signoz --apm-endpoint http://signoz:3301
+
+        finops preflight -t gateway-server -p dodo-dev -o preflight.json
+    """
+    config: FinOpsConfig = ctx.obj["config"]
+    effective_region = region or "us-east-1"
+
+    console.print(f"\n[bold]AWS FinOps Toolkit[/bold] v{__version__} — Pre-Flight Analysis")
+    console.print(f"Target: [cyan]{target}[/cyan]  Profile: [cyan]{profile}[/cyan]  Region: [cyan]{effective_region}[/cyan]")
+
+    # Show which config sources are active
+    pf = config.preflight
+    apm_source = apm or pf.apm.get("provider", "cloudwatch")
+    svc = pf.get_service(target) or pf.get_service_by_resource(target)
+    if svc:
+        console.print(f"Service: [cyan]{svc.name}[/cyan] (from service catalog, priority: {svc.priority})")
+    console.print(f"APM: [cyan]{apm_source}[/cyan]  SLO: p99<{pf.slo.get('p99_latency_ms', 200)}ms, {pf.slo.get('availability_pct', 99.9)}% avail\n")
+
+    # TODO: Create boto3 session from profile
+    # session = boto3.Session(profile_name=profile, region_name=effective_region)
+    session = None  # Scaffold — replace with real session
+
+    analyzer = PreflightAnalyzer(config=config)
+    result = analyzer.analyze(
+        target=target,
+        session=session,
+        region=effective_region,
+        apm_provider=apm,
+        apm_endpoint=apm_endpoint,
+    )
+
+    # Display results
+    verdict = result.verdict
+    if verdict == Verdict.GO:
+        verdict_style = "[bold green]GO — SAFE TO PROCEED[/bold green]"
+    elif verdict == Verdict.WAIT:
+        verdict_style = "[bold yellow]WAIT — RESOLVE WARNINGS FIRST[/bold yellow]"
+    else:
+        verdict_style = "[bold red]STOP — BLOCKING ISSUES FOUND[/bold red]"
+
+    console.print(f"Verdict: {verdict_style}\n")
+    console.print(f"[dim]{result.recommendation}[/dim]\n")
+
+    # Show findings
+    for finding in result.findings:
+        if finding.severity.value == "blocker":
+            icon = "[red]BLOCK[/red]"
+        elif finding.severity.value == "warning":
+            icon = "[yellow]WARN [/yellow]"
+        else:
+            icon = "[dim]INFO [/dim]"
+        console.print(f"  {icon}  [{finding.check_name}] {finding.message}")
+
+    if not result.findings:
+        console.print("  [green]All 9 checks passed — no issues found.[/green]")
+
+    # Save to file if requested
+    if output:
+        output_path = Path(output)
+        output_path.write_text(json.dumps(result.to_dict(), indent=2, default=str))
+        console.print(f"\n[green]Results saved to {output_path}[/green]")
+
+    # Always save last preflight
+    last_path = Path(".finops-last-preflight.json")
+    last_path.write_text(json.dumps(result.to_dict(), indent=2, default=str))
 
 
 @main.command()
@@ -294,6 +422,63 @@ def watch(
     console.print("[yellow]Watch mode is not yet implemented.[/yellow]")
     console.print("Tip: Use 'finops scan' with a system cron job or GitHub Actions schedule instead.")
     console.print("See examples/ci-integration.md for a GitHub Actions workflow.")
+
+
+@main.command()
+@click.option("--port", "-p", type=int, default=None, help="Port to serve on. Default: 8080.")
+@click.option("--host", type=str, default=None, help="Host to bind to. Default: 127.0.0.1.")
+@click.option("--no-browser", is_flag=True, default=False, help="Don't open browser on start.")
+@click.option("--demo", is_flag=True, default=False, help="Start with demo data (no AWS creds needed).")
+@click.pass_context
+def dashboard(
+    ctx: click.Context,
+    port: Optional[int],
+    host: Optional[str],
+    no_browser: bool,
+    demo: bool,
+) -> None:
+    """Launch the web dashboard.
+
+    Examples:
+
+        finops dashboard
+
+        finops dashboard --port 9090 --host 0.0.0.0
+
+        finops dashboard --demo
+    """
+    try:
+        import uvicorn
+    except ImportError:
+        console.print("[red]Error:[/red] Web dependencies not installed.")
+        console.print("Run: pip install aws-finops-toolkit[web]")
+        sys.exit(1)
+
+    config: FinOpsConfig = ctx.obj["config"]
+    effective_host = host or config.web.host
+    effective_port = port or config.web.port
+
+    console.print(f"\n[bold]AWS FinOps Toolkit[/bold] v{__version__} — Dashboard")
+    console.print(f"  URL: http://{effective_host}:{effective_port}")
+    if demo:
+        console.print("  Mode: [yellow]Demo (mock data)[/yellow]")
+    console.print()
+
+    if not no_browser:
+        import webbrowser
+        webbrowser.open(f"http://{effective_host}:{effective_port}")
+
+    # Store config + demo flag for the FastAPI app
+    import os
+    os.environ["FINOPS_DEMO"] = "1" if demo else "0"
+
+    uvicorn.run(
+        "finops.app:create_app",
+        factory=True,
+        host=effective_host,
+        port=effective_port,
+        reload=config.web.debug,
+    )
 
 
 if __name__ == "__main__":
