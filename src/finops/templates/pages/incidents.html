@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Incidents & User Impact</h2>
+</div>
+
+{% if incidents %}
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Title</th><th>Severity</th><th>Started</th><th>Users Before</th><th>Users After</th><th>Churn</th></tr>
+        </thead>
+        <tbody>
+            {% for inc in incidents %}
+            <tr>
+                <td><strong>{{ inc.title }}</strong></td>
+                <td><span class="badge badge-{{ inc.severity }}">{{ inc.severity }}</span></td>
+                <td>{{ inc.started_at[:16] }}</td>
+                <td>{{ inc.user_impact_before or '—' }}</td>
+                <td>{{ inc.user_impact_after or '—' }}</td>
+                <td>
+                    {% if inc.user_churn %}
+                    <span style="color:var(--red)">-{{ inc.user_churn }}</span>
+                    {% if inc.user_impact_before %}
+                    ({{ (inc.user_churn / inc.user_impact_before * 100)|round(1) }}%)
+                    {% endif %}
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No incidents recorded. Use the API to record incidents and track user impact.</p>
+</div>
+{% endif %}
+{% endblock %}

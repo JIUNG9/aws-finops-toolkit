@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Findings{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Findings</h2>
+</div>
+
+{% if findings %}
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Check</th>
+                <th>Resource</th>
+                <th>Severity</th>
+                <th>Current Cost</th>
+                <th>Savings</th>
+                <th>Action</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in findings %}
+            <tr>
+                <td>{{ f.check_name }}</td>
+                <td>{{ f.resource_name or f.resource_id }}</td>
+                <td><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td>
+                <td>${{ "%.0f"|format(f.current_monthly_cost) }}/mo</td>
+                <td class="savings">${{ "%.0f"|format(f.estimated_monthly_savings) }}/mo</td>
+                <td>{{ f.recommended_action[:60] }}{% if f.recommended_action|length > 60 %}...{% endif %}</td>
+                <td>
+                    <span class="badge badge-{{ f.status }}"
+                          hx-patch="/api/v1/findings/{{ f.id }}"
+                          hx-vals='{"status": "{% if f.status == "open" %}accepted{% else %}open{% endif %}"}'
+                          hx-swap="outerHTML"
+                          style="cursor:pointer">{{ f.status }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No findings yet. <a href="/scans">Run a scan</a> to discover cost savings.</p>
+</div>
+{% endif %}
+{% endblock %}

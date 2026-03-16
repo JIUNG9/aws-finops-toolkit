@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Error Budgets{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Error Budgets</h2>
+</div>
+
+{% if error_budgets %}
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Service</th><th>SLO Target</th><th>Budget Used</th><th>Remaining</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for eb in error_budgets %}
+            {% set remaining = ((eb.budget_total_minutes - eb.budget_consumed_minutes) / eb.budget_total_minutes * 100) if eb.budget_total_minutes > 0 else 0 %}
+            <tr>
+                <td>{{ eb.service_name or 'Unknown' }}</td>
+                <td>{{ eb.slo_target_pct }}%</td>
+                <td>{{ "%.1f"|format(eb.budget_consumed_minutes) }} min</td>
+                <td>
+                    <div class="bar-track" style="width:200px;display:inline-block;vertical-align:middle">
+                        <div class="bar-fill {% if remaining > 50 %}green{% elif remaining > 20 %}yellow{% else %}red{% endif %}"
+                             style="width:{{ remaining|round }}%"></div>
+                    </div>
+                    {{ remaining|round(1) }}%
+                </td>
+                <td><span class="badge badge-{{ eb.status }}">{{ eb.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No error budgets configured. Set SLO targets for your services to start tracking reliability budgets.</p>
+</div>
+{% endif %}
+{% endblock %}
