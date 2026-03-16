@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Services{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Service Catalog & Dependencies</h2>
+</div>
+
+<div class="section">
+    <h3>Dependency Graph</h3>
+    <div id="dep-graph" style="width:100%;height:400px;border:1px solid var(--border);border-radius:var(--radius);background:#fafafa">
+        <div style="text-align:center;padding-top:180px;color:var(--text-muted)" id="graph-loading">Loading dependency graph...</div>
+    </div>
+</div>
+
+{% if services %}
+<div class="section">
+    <h3>Services</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Priority</th><th>Owner</th><th>Stateless</th></tr>
+        </thead>
+        <tbody>
+            {% for s in services %}
+            <tr>
+                <td><strong>{{ s.name }}</strong></td>
+                <td><span class="badge badge-{% if s.priority == 'P0' %}critical{% elif s.priority == 'P1' %}warning{% else %}info{% endif %}">{{ s.priority }}</span></td>
+                <td>{{ s.owner_team or '—' }}</td>
+                <td>{{ 'Yes' if s.stateless else 'No' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No services defined. Add services to build a dependency graph.</p>
+</div>
+{% endif %}
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+fetch('/api/v1/services/dependency-graph')
+  .then(r => r.json())
+  .then(data => {
+    if (!data.nodes || data.nodes.length === 0) {
+      document.getElementById('graph-loading').textContent = 'No services to display. Add services first.';
+      return;
+    }
+    document.getElementById('graph-loading').style.display = 'none';
+    const container = document.getElementById('dep-graph');
+    const width = container.clientWidth, height = 400;
+    const svg = d3.select('#dep-graph').append('svg').attr('width', width).attr('height', height);
+    const colors = ['#dc2626','#d97706','#1a73e8','#64748b'];
+
+    const simulation = d3.forceSimulation(data.nodes)
+      .force('link', d3.forceLink(data.links).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width/2, height/2));
+
+    const link = svg.selectAll('line').data(data.links).enter().append('line')
+      .attr('stroke', '#ccc').attr('stroke-width', 2).attr('marker-end', 'url(#arrow)');
+
+    svg.append('defs').append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
+      .attr('refX',20).attr('refY',5).attr('markerWidth',6).attr('markerHeight',6)
+      .attr('orient','auto').append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#ccc');
+
+    const node = svg.selectAll('g').data(data.nodes).enter().append('g').call(
+      d3.drag().on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+        .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;}).on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;})
+    );
+    node.append('circle').attr('r', 14).attr('fill', d => colors[d.group] || '#64748b');
+    node.append('text').text(d => d.name).attr('dx', 18).attr('dy', 5).style('font-size','12px').style('fill','#333');
+
+    simulation.on('tick', () => {
+      link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+      node.attr('transform',d=>`translate(${d.x},${d.y})`);
+    });
+  });
+</script>
+{% endblock %}

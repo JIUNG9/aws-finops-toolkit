@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Scans{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Scans</h2>
+</div>
+
+<div class="section">
+    <h3>Trigger New Scan</h3>
+    <form hx-post="/api/v1/scans" hx-swap="none" hx-on::after-request="location.reload()">
+        <div style="display:flex;gap:1rem;align-items:end">
+            <div class="form-group" style="flex:1">
+                <label>Account</label>
+                <select name="account_id">
+                    <option value="">All accounts</option>
+                    {% for a in accounts %}
+                    <option value="{{ a.id }}">{{ a.name }} ({{ a.provider }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Run Scan</button>
+        </div>
+    </form>
+</div>
+
+{% if scans %}
+<div class="section">
+    <h3>Scan History</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>ID</th><th>Time</th><th>Status</th><th>Findings</th><th>Savings</th></tr>
+        </thead>
+        <tbody>
+            {% for s in scans %}
+            <tr>
+                <td><a href="/scans/{{ s.id }}">{{ s.id[:8] }}...</a></td>
+                <td>{{ s.created_at[:16] }}</td>
+                <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+                <td>{{ s.total_findings }}</td>
+                <td>${{ "%.0f"|format(s.total_monthly_savings) }}/mo</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

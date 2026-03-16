@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}AI Recommendations{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>AI Recommendations</h2>
+    <button class="btn btn-primary" hx-post="/api/v1/ai/analyze" hx-swap="none"
+            hx-on::after-request="location.reload()" style="margin-top:0.5rem">
+        Run AI Analysis
+    </button>
+</div>
+
+{% if recommendations %}
+{% for rec in recommendations %}
+<div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+            <h3>{{ rec.title }}</h3>
+            <span class="badge badge-{{ rec.severity }}">{{ rec.severity }}</span>
+            {% if rec.llm_provider %}
+            <span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem">via {{ rec.llm_provider }}</span>
+            {% endif %}
+        </div>
+        <div>
+            {% if rec.status == 'pending' %}
+            <button class="btn btn-success" style="font-size:0.8rem"
+                    hx-patch="/api/v1/ai/recommendations/{{ rec.id }}?status=accepted"
+                    hx-swap="none" hx-on::after-request="location.reload()">Accept</button>
+            <button class="btn" style="font-size:0.8rem;background:#e2e8f0"
+                    hx-patch="/api/v1/ai/recommendations/{{ rec.id }}?status=dismissed"
+                    hx-swap="none" hx-on::after-request="location.reload()">Dismiss</button>
+            {% else %}
+            <span class="badge badge-{{ rec.status }}">{{ rec.status }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div style="margin-top:1rem;font-size:0.875rem;line-height:1.6">{{ rec.body | safe }}</div>
+    <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text-muted)">{{ rec.created_at[:16] }}</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+    <p>No AI recommendations yet. Click "Run AI Analysis" to analyze your findings.</p>
+</div>
+{% endif %}
+{% endblock %}
