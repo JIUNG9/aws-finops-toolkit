@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Monthly Savings Found</div>
+        <div class="card-value savings">${{ "%.0f"|format(cost.savings or 0) }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Annual Projection</div>
+        <div class="card-value">${{ "%.0f"|format((cost.savings or 0) * 12) }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Open Findings</div>
+        <div class="card-value">{{ cost.findings or 0 }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Error Budgets</div>
+        <div class="card-value">
+            {% set healthy = error_budgets|selectattr('status', 'equalto', 'healthy')|list|length %}
+            {% set total = error_budgets|length %}
+            {{ healthy }}/{{ total }} healthy
+        </div>
+    </div>
+</div>
+
+{% if error_budgets %}
+<div class="section">
+    <h3>Error Budget Status</h3>
+    <div class="budget-bars">
+        {% for eb in error_budgets %}
+        <div class="budget-bar-row">
+            <span class="label">{{ eb.service_name or 'Unknown' }}</span>
+            {% set remaining = ((eb.budget_total_minutes - eb.budget_consumed_minutes) / eb.budget_total_minutes * 100) if eb.budget_total_minutes > 0 else 0 %}
+            <div class="bar-track">
+                <div class="bar-fill {% if remaining > 50 %}green{% elif remaining > 20 %}yellow{% else %}red{% endif %}"
+                     style="width: {{ remaining|round }}%"></div>
+            </div>
+            <span class="pct">{{ remaining|round(1) }}%</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if top_findings %}
+<div class="section">
+    <h3>Top Findings by Savings</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Check</th>
+                <th>Resource</th>
+                <th>Severity</th>
+                <th>Monthly Savings</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in top_findings %}
+            <tr>
+                <td>{{ f.check_name }}</td>
+                <td>{{ f.resource_name or f.resource_id }}</td>
+                <td><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td>
+                <td class="savings">${{ "%.0f"|format(f.estimated_monthly_savings) }}</td>
+                <td><span class="badge badge-{{ f.status }}">{{ f.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No findings yet. <a href="/scans">Run your first scan</a> or <a href="/settings">add a cloud account</a>.</p>
+</div>
+{% endif %}
+
+{% if scans %}
+<div class="section">
+    <h3>Recent Scans</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Time</th><th>Status</th><th>Findings</th><th>Savings</th></tr>
+        </thead>
+        <tbody>
+            {% for s in scans %}
+            <tr>
+                <td>{{ s.created_at[:16] }}</td>
+                <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+                <td>{{ s.total_findings }}</td>
+                <td>${{ "%.0f"|format(s.total_monthly_savings) }}/mo</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

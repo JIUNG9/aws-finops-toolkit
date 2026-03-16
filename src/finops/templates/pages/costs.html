@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Cost Tracking{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Cost Tracking</h2>
+</div>
+
+<div class="section">
+    <h3>Cost Overview</h3>
+    <div id="cost-overview" hx-get="/api/v1/costs/overview" hx-trigger="load" hx-swap="innerHTML">
+        Loading cost data...
+    </div>
+</div>
+
+<div class="section">
+    <h3>Cost Trend</h3>
+    <canvas id="costTrendChart" height="300"></canvas>
+</div>
+
+<div class="section">
+    <h3>Cost by Account</h3>
+    <div id="cost-by-account" hx-get="/api/v1/costs/by-account" hx-trigger="load" hx-swap="innerHTML">
+        Loading...
+    </div>
+</div>
+{% endblock %}

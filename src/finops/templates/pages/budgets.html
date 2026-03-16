@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Budgets{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Financial Budgets</h2>
+</div>
+
+{% if budgets %}
+<div class="cards">
+    {% for b in budgets %}
+    {% set usage_pct = (b.actual_amount / b.budget_amount * 100) if b.budget_amount > 0 else 0 %}
+    <div class="card">
+        <div class="card-label">{{ b.name }}</div>
+        <div class="card-value">${{ "%.0f"|format(b.actual_amount) }} / ${{ "%.0f"|format(b.budget_amount) }}</div>
+        <div class="bar-track" style="margin-top:0.5rem">
+            <div class="bar-fill {% if usage_pct > 100 %}red{% elif usage_pct > 80 %}yellow{% else %}green{% endif %}"
+                 style="width:{{ [usage_pct, 100]|min }}%"></div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem">
+            {{ usage_pct|round(1) }}% used — <span class="badge badge-{{ b.status }}">{{ b.status }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No budgets set. Create a budget to track your cloud spend against targets.</p>
+</div>
+{% endif %}
+{% endblock %}

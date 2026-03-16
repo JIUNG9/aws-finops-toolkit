@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Settings</h2>
+</div>
+
+<div class="section">
+    <h3>Cloud Accounts</h3>
+    <form hx-post="/api/v1/accounts" hx-swap="none" hx-on::after-request="location.reload()">
+        <div style="display:flex;gap:1rem;align-items:end;margin-bottom:1rem">
+            <div class="form-group" style="flex:1">
+                <label>Provider</label>
+                <select name="provider">
+                    <option value="aws">AWS</option>
+                    <option value="azure">Azure</option>
+                    <option value="gcp">GCP</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex:2">
+                <label>Account Name</label>
+                <input type="text" name="name" placeholder="e.g., Production" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Account</button>
+        </div>
+    </form>
+
+    {% if accounts %}
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Provider</th><th>Status</th><th>Last Synced</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for a in accounts %}
+            <tr>
+                <td>{{ a.name }}</td>
+                <td>{{ a.provider }}</td>
+                <td><span class="badge badge-{{ a.status }}">{{ a.status }}</span></td>
+                <td>{{ a.last_synced or 'Never' }}</td>
+                <td>
+                    <button class="btn btn-danger" style="font-size:0.7rem;padding:0.25rem 0.5rem"
+                            hx-delete="/api/v1/accounts/{{ a.id }}" hx-confirm="Delete this account?"
+                            hx-swap="none" hx-on::after-request="location.reload()">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}
