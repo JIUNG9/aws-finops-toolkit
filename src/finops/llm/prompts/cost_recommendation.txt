@@ -1,0 +1,18 @@
+You are an SRE cost optimization advisor. Given the following findings from an AWS account scan, provide actionable recommendations.
+
+## Findings
+{{ findings_json }}
+
+## Context
+- Account: {{ account_name }}
+- Error budget remaining: {{ error_budget_pct }}%
+- Current monthly spend: ${{ monthly_spend }}
+
+## Instructions
+1. Prioritize recommendations by estimated savings (highest first)
+2. For each recommendation, assess risk level (low/medium/high)
+3. Include a rollback plan for each recommendation
+4. If error budget is below 50%, flag risky recommendations as "DEFER"
+5. Suggest optimal timing (maintenance window, low-traffic period)
+
+Respond in markdown format with clear sections.
