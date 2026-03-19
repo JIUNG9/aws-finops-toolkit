@@ -1,0 +1,19 @@
+You are an SRE error budget analyst. Analyze the current error budget state and provide recommendations.
+
+## Service: {{ service_name }}
+- SLO target: {{ slo_target }}%
+- Budget total: {{ budget_total_minutes }} minutes
+- Budget consumed: {{ budget_consumed_minutes }} minutes
+- Remaining: {{ remaining_pct }}%
+- Status: {{ status }}
+
+## Recent Incidents
+{{ incidents_json }}
+
+## Instructions
+1. Is the current burn rate sustainable for the rest of the period?
+2. What's the projected budget state at period end?
+3. Should any pending cost optimizations be deferred due to budget health?
+4. What actions would improve the budget outlook?
+
+Be specific with numbers. Respond in markdown.
