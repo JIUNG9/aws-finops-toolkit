@@ -12,6 +12,9 @@ This check:
   3. Flags instances with low utilization
   4. Flags Multi-AZ in non-production environments
   5. Recommends smaller instance classes
+  6. Parameter group compatibility when changing instance class (memory-dependent params)
+  7. CDC/logical replication impact — replication slots, WAL retention, lag risk
+  8. Cold buffer pool cache after instance change — warm-up period needed
 
 Typical savings: 30-50% per right-sized instance.
 
@@ -64,6 +67,16 @@ RDS_DOWNSIZE_MAP: dict[str, str] = {
 }
 
 HOURS_PER_MONTH = 730
+
+# Memory-dependent parameters that change with instance size
+# When downsizing, these may need reconfiguration
+MEMORY_DEPENDENT_PARAMS = [
+    "shared_buffers",        # PostgreSQL: typically 25% of RAM
+    "effective_cache_size",  # PostgreSQL: typically 75% of RAM
+    "work_mem",              # PostgreSQL: scales with available RAM
+    "innodb_buffer_pool_size",  # MySQL: typically 70-80% of RAM
+    "innodb_log_buffer_size",   # MySQL: scales with buffer pool
+]
 
 
 class RDSRightsizingCheck(BaseCheck):
@@ -216,6 +229,16 @@ class RDSRightsizingCheck(BaseCheck):
         #                     "reason": "multi_az_non_prod",
         #                 },
         #             ))
+        #
+        #         # Step 6: Check parameter group and replication risks
+        #         replication_risks = self._check_replication_and_params(db_id, db_class, engine)
+        #         if replication_risks["has_custom_param_group"]:
+        #             # Add warning: custom parameter group needs review after downsize
+        #             pass
+        #         if replication_risks["has_logical_replication"]:
+        #             # Add warning: CDC active — monitor replication lag after downsize
+        #             pass
+        #         # Always note cold cache risk in details
 
         return results
 
@@ -264,3 +287,49 @@ class RDSRightsizingCheck(BaseCheck):
             monthly *= 2  # Multi-AZ doubles the instance cost
 
         return monthly
+
+    def _check_replication_and_params(self, db_id: str, db_class: str, engine: str) -> dict[str, Any]:
+        """Check for CDC/logical replication and parameter group risks.
+
+        When downsizing RDS:
+        - Parameter groups: Memory-dependent params (shared_buffers, innodb_buffer_pool_size)
+          may need adjustment for the smaller instance. Default parameter groups auto-scale,
+          but custom groups with hardcoded values will break.
+        - CDC/Logical replication: If wal_level=logical (PostgreSQL) or binlog is enabled (MySQL),
+          downsizing increases replication lag risk. Smaller instances have less I/O and memory
+          for WAL processing.
+        - Cold cache: After instance modification, the buffer pool starts empty. Factor in
+          warm-up period (30-60 minutes) during low-traffic window.
+
+        Returns dict with risk flags and details.
+        """
+        risks: dict[str, Any] = {
+            "has_custom_param_group": False,
+            "memory_dependent_params": [],
+            "has_logical_replication": False,
+            "replication_slot_count": 0,
+            "cold_cache_risk": True,  # Always true for RDS modifications
+            "cold_cache_warmup_minutes": 30,  # Estimate
+        }
+
+        # TODO: Implement with real boto3 calls
+        # Step 1: Check parameter group
+        # rds_client.describe_db_instances() → db["DBParameterGroups"]
+        # If parameter group name != "default.postgres*" / "default.mysql*":
+        #   risks["has_custom_param_group"] = True
+        #   rds_client.describe_db_parameters(DBParameterGroupName=pg_name)
+        #   Check for MEMORY_DEPENDENT_PARAMS with hardcoded (non-default) values
+
+        # Step 2: Check logical replication (CDC)
+        # PostgreSQL: check parameter "rds.logical_replication" == "1"
+        # MySQL: check parameter "log_bin" / "binlog_format"
+        # If logical replication enabled:
+        #   risks["has_logical_replication"] = True
+        #   Check pg_replication_slots (via CloudWatch ReplicationSlotDiskUsage metric)
+
+        # Step 3: Estimate cold cache warmup
+        # Larger instances = longer warmup (more buffer pool to fill)
+        # db.r6g.xlarge (~32GB RAM, ~8GB shared_buffers) → ~45 min warmup
+        # db.r6g.large (~16GB RAM, ~4GB shared_buffers) → ~30 min warmup
+
+        return risks
