@@ -17,6 +17,9 @@ from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.reserved_instances import ReservedInstancesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.rds_rightsizing import RDSRightsizingCheck
+from finops.checks.vpc_waste import VPCWasteCheck
+from finops.checks.cloudwatch_waste import CloudWatchWasteCheck
+from finops.checks.s3_lifecycle import S3LifecycleCheck
 from finops.config import FinOpsConfig
 
 
@@ -29,6 +32,9 @@ CHECKS: dict[str, type[BaseCheck]] = {
     "reserved_instances": ReservedInstancesCheck,
     "elasticache_scheduling": ElastiCacheSchedulingCheck,
     "rds_rightsizing": RDSRightsizingCheck,
+    "vpc_waste": VPCWasteCheck,
+    "cloudwatch_waste": CloudWatchWasteCheck,
+    "s3_lifecycle": S3LifecycleCheck,
 }
 
 
