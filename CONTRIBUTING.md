@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repository
-git clone https://github.com/junegunn/aws-finops-toolkit.git
+git clone https://github.com/junegu/aws-finops-toolkit.git
 cd aws-finops-toolkit
 
 # Create a virtual environment
