@@ -9,6 +9,15 @@ thresholds:
   snapshot_age_days: 90         # Flag EBS snapshots older than this (days)
   idle_lb_days: 7               # Flag load balancers with 0 connections for this many days
   stopped_instance_days: 7      # Flag stopped EC2 instances older than this (days)
+  nat_idle_days: 14             # Flag NAT Gateways with 0 bytes for this many days
+  workspace_stale_days: 30      # Flag WorkSpaces stopped/unhealthy for this many days
+  storage_gw_idle_days: 30      # Flag Storage Gateways with 0 activity for this many days
+  log_inactive_days: 90         # Flag log groups with no events for this many days
+  log_retention_non_prod_days: 90   # Max retention for non-prod log groups
+  log_retention_prod_days: 365  # Max retention for production log groups
+  log_ingestion_threshold_gb: 100   # Flag log groups ingesting more than this GB/month
+  s3_large_bucket_gb: 100       # Minimum bucket size (GB) to flag for lifecycle optimization
+  s3_high_object_count: 1000000 # Flag IT buckets with more than this many objects
 
 # AWS accounts to scan. Leave empty to require --profile or --org CLI flags.
 # Supports two formats:
@@ -34,3 +43,121 @@ checks:
   reserved_instances: true
   elasticache_scheduling: true
   rds_rightsizing: true
+  vpc_waste: true
+  cloudwatch_waste: true
+  s3_lifecycle: true
+
+# ─── Pre-flight analysis configuration ───────────────────────────
+# Used by `finops preflight` to analyze a target before optimization.
+# Configure your SLO targets, APM, service catalog, and priority rules.
+# All values have sensible defaults — override what's relevant to you.
+
+preflight:
+
+  # Check 1 & 7: Traffic analysis thresholds
+  traffic:
+    peak_avg_ratio_warn: 3.0      # WARN if peak:avg QPS exceeds this ratio
+    lookback_days: 30             # Days of CloudWatch data to analyze
+    low_traffic_window: "02:00-06:00"   # Default safe maintenance window (local time)
+
+  # Check 2: Quality of Service / SLO targets
+  # Define your organization's SLO defaults. Per-service overrides go in the
+  # services section below.
+  slo:
+    p99_latency_ms: 200           # Default p99 latency target (milliseconds)
+    availability_pct: 99.9        # Default availability target (%)
+    error_budget_go_pct: 70       # GREEN — safe to optimize
+    error_budget_warn_pct: 40     # Below this → YELLOW (low-risk only)
+                                  # Below 0% (SLO breached) → RED / STOP
+
+  # Check 2 & 6: APM integration for SLO data and service mapping
+  # Supported providers: signoz, datadog, prometheus, cloudwatch (fallback)
+  apm:
+    provider: cloudwatch          # Default: CloudWatch (no external APM needed)
+    # endpoint: ""                # API endpoint (required for signoz/datadog/prometheus)
+    # api_key_env: ""             # Env var name for APM API key (e.g., SIGNOZ_API_KEY)
+    #
+    # Examples:
+    #   provider: signoz
+    #   endpoint: http://signoz.internal:3301
+    #   api_key_env: SIGNOZ_API_KEY
+    #
+    #   provider: datadog
+    #   endpoint: https://api.datadoghq.com
+    #   api_key_env: DD_API_KEY
+
+  # Check 3: Cache dependency analysis
+  cache:
+    high_dependency_pct: 80       # WARN if cache hit rate > this (backend barely tested under real load)
+    # discovery: auto             # auto: find ElastiCache clusters via tags | manual: use services section
+
+  # Check 4: Incident history
+  incidents:
+    lookback_days: 90             # How far back to look for incidents
+    capacity_cooldown_days: 60    # WARN if capacity-related incident within this window
+    source: cloudwatch            # cloudwatch | pagerduty | opsgenie
+    # pagerduty_api_key_env: PD_API_KEY
+    # opsgenie_api_key_env: OG_API_KEY
+
+  # Check 8: Priority levels and approval rules
+  # Define what each priority level means for your organization.
+  # The preflight command checks the target's "Priority" tag against these rules.
+  priority:
+    tag_key: Priority             # AWS tag key that holds the priority level
+    freeze_tag_key: DeployFreeze  # Tag on account/resource indicating a freeze (value: "true")
+    levels:
+      P0:
+        label: "Critical path"
+        prod_changes: maintenance_window  # maintenance_window | off_peak | business_hours | anytime
+        requires_approval: true
+        approval_from: "team lead + SRE"
+      P1:
+        label: "Important"
+        prod_changes: off_peak
+        requires_approval: true
+        approval_from: "SRE"
+      P2:
+        label: "Standard"
+        prod_changes: business_hours
+        requires_approval: false
+      P3:
+        label: "Non-critical"
+        prod_changes: anytime
+        requires_approval: false
+
+  # Check 6 & 7: Service catalog (optional)
+  # Map AWS resources to logical services. This enables:
+  #   - Blast radius analysis (which services depend on this resource?)
+  #   - APM dashboard lookup
+  #   - Cache dependency discovery
+  #   - Traffic pattern classification (stateless → Spot candidate)
+  #
+  # If omitted, preflight discovers services from AWS tags:
+  #   - "Service" tag → service name
+  #   - "Team" / "Owner" tag → owner
+  #   - "Priority" tag → priority level
+  #
+  # services:
+  #   - name: gateway-server
+  #     priority: P0
+  #     stateless: true
+  #     resources:                  # AWS resource IDs or patterns
+  #       - i-0abc123
+  #       - "tag:Service=gateway-server"
+  #     cache_cluster: my-redis     # ElastiCache cluster ID for cache analysis
+  #     dependencies:
+  #       upstream: [alb, cdn]
+  #       downstream: [auth-server, user-server, database]
+  #     slo:                        # Per-service SLO overrides (optional)
+  #       p99_latency_ms: 100
+  #       availability_pct: 99.95
+  #
+  #   - name: order-database
+  #     priority: P0
+  #     stateless: false
+  #     resources:
+  #       - pn-sh-rds-prod
+  #     dependencies:
+  #       upstream: [gateway-server, auth-server]
+  #       downstream: []
+  services: []
