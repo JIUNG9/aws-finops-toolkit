@@ -1,225 +1,200 @@
 # aws-finops-toolkit
 
-**Find $40,000/year in AWS waste in 5 minutes.**
+**SRE + FinOps Platform — cost optimization gated on error budgets, traffic analysis, and dependency safety.**
 
-A CLI tool that scans your AWS accounts and tells you exactly where you're wasting money and how to fix it. Built from real-world experience reducing cloud costs by 30% (~$40K/year) across 5 AWS accounts.
+CLI + web dashboard that finds AWS waste with an SRE mindset: it checks your SLOs, error budgets, and service dependencies *before* recommending any cost cut. Built from real-world FinOps work that found $67K/year in savings across 4 AWS accounts — without a single production incident.
 
 ---
 
 ## Why This Exists
 
-Every AWS account has waste hiding in plain sight: oversized EC2 instances running at 8% CPU, NAT Gateways in dev environments burning $30/day, forgotten EBS volumes, idle load balancers. Finding this manually means clicking through the console for hours. This tool does it in minutes.
+Most FinOps tools tell you *what* to cut. They don't tell you *if it's safe*.
 
-## Features
+No existing tool combines SRE reliability (error budgets, SLOs) with cost optimization. Sedai is autonomous but opaque. Harness CCM has budgets but no error budget gating. This fills the gap.
 
-- **EC2 / EKS Right-Sizing** — Find instances running at <20% CPU and recommend downsizing
-- **NAT Gateway Cost Detection** — Flag expensive NAT Gateways in non-production environments
-- **Spot Instance Candidates** — Identify stateless workloads that could run on Spot (60-70% savings)
-- **Unused Resource Detection** — Catch unattached EBS volumes, unused EIPs, old snapshots, idle ALBs
-- **Reserved Instance Recommendations** — Calculate RI and Savings Plans ROI for always-on workloads
-- **ElastiCache Scheduling** — Detect dev/staging clusters that should be stopped off-hours
-- **RDS Right-Sizing** — Find oversized databases and unnecessary Multi-AZ in non-prod
-- **Multi-Account Support** — Scan across AWS Organizations or a list of profiles
-- **Multiple Output Formats** — Rich terminal tables, JSON, CSV, HTML reports
+**Every recommendation passes a 5-step safety analysis:**
+
+1. **Traffic Analysis** — 1-year traffic patterns, seasonal peaks, growth trends
+2. **Dependency Check** — what services break if this resource fails? Blast radius?
+3. **Error Budget Gate** — if error budget < 50%, all optimizations are blocked
+4. **AI Analysis** — LLM explains risk, suggests timing, provides rollback plan
+5. **User Confirmation** — checklist approval before any action
 
 ## Quick Start
 
 ```bash
-pip install aws-finops-toolkit
+# Install
+pip install aws-finops-toolkit[web]
+
+# Launch dashboard with demo data (no AWS creds needed)
+finops dashboard --demo
+
+# Or scan real AWS accounts
+finops scan --profile production
 ```
 
+Open `http://localhost:8080` to see the dashboard.
+
+## Features
+
+### Web Dashboard (HTMX + Chart.js)
+- **Cost dashboard** — before/after comparison, trends, per-account breakdown
+- **Findings** — filterable table with severity, accept/dismiss/watch actions
+- **Error budget tracking** — set SLO targets, track burn rate, incident timeline
+- **Financial budgets** — budget vs actual, forecast, AI advice
+- **Service dependency graph** — D3.js interactive visualization
+- **AI recommendations** — pluggable LLM (Claude/OpenAI) with safety analysis
+- **Incident tracking** — record incidents, track user churn impact
+
+### CLI (preserved from v0.1)
 ```bash
-# Scan a single account
-finops scan --profile my-aws-profile
-
-# Scan specific checks only
-finops scan --profile my-aws-profile --checks ec2_rightsizing,nat_gateway
-
-# Scan all accounts in your AWS Organization
-finops scan --org --role-name FinOpsReadOnly
-
-# Generate an HTML report
+finops scan --profile prod                    # Scan AWS account
+finops scan --profiles dev,staging,prod       # Multi-account scan
+finops preflight --target prod-orders-db      # Pre-flight safety check
 finops report --format html --output report.html
+finops dashboard                              # Launch web UI
+finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-## Example Output
+### 10 Cost Checks
+| Check | What It Finds |
+|-------|--------------|
+| `ec2_rightsizing` | Over-provisioned instances (avg CPU < 20% over 14 days) |
+| `nat_gateway` | NAT Gateways in dev/staging with 0 bytes processed |
+| `spot_candidates` | Non-prod workloads eligible for Spot instances |
+| `unused_resources` | Unattached EBS, unused EIPs, old snapshots, idle ALBs |
+| `reserved_instances` | On-demand instances that should be RIs |
+| `elasticache_scheduling` | Dev/staging clusters running 24/7 |
+| `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
+| `vpc_waste` | Abandoned VPCs, idle NAT GWs, stale WorkSpaces |
+| `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
+| `s3_lifecycle` | S3 buckets without lifecycle policies |
 
-```
-$ finops scan --profile production
+### Multi-Cloud Ready
+- **AWS** — full implementation (10 checks, Cost Explorer, CloudWatch)
+- **Azure** — provider abstraction ready (Phase 2)
+- **GCP** — provider abstraction ready (Phase 2)
 
-  AWS FinOps Toolkit — Scan Results
-  Account: 123456789012 (production)
-  Region:  us-east-1
-  Scanned: 2026-03-08 14:30 UTC
-
-  ┌─────────────────────────┬──────────────────────┬─────────────────────────────────────┬──────────────┐
-  │ Resource                │ Current Cost/mo      │ Recommended Action                  │ Est. Savings │
-  ├─────────────────────────┼──────────────────────┼─────────────────────────────────────┼──────────────┤
-  │ i-0a1b2c3d (web-prod)   │ $292.00 (m5.2xlarge) │ Downsize to m5.xlarge (avg CPU 12%) │ $146.00/mo   │
-  │ i-0e4f5a6b (worker-01)  │ $146.00 (m5.xlarge)  │ Downsize to m5.large (avg CPU 8%)   │ $73.00/mo    │
-  │ nat-0abc1234 (dev-vpc)  │ $32.40               │ Replace with NAT Instance (t3.nano) │ $28.00/mo    │
-  │ vol-0ff1234a (detached) │ $80.00 (800GB gp3)   │ Delete — unattached for 45 days     │ $80.00/mo    │
-  │ eip-01234abc            │ $3.60                │ Release — not associated             │ $3.60/mo     │
-  │ snap-0a1b2c (290 days)  │ $12.50               │ Delete — older than 90 days          │ $12.50/mo    │
-  │ asg-staging-workers     │ $438.00 (3x m5.xl)   │ Switch to Spot Instances             │ $306.00/mo   │
-  │ redis-dev-001           │ $97.20 (r6g.large)   │ Schedule off-hours (stop 8pm-8am)   │ $48.60/mo    │
-  │ mydb-staging (Multi-AZ) │ $584.00 (r5.xlarge)  │ Convert to Single-AZ                │ $292.00/mo   │
-  └─────────────────────────┴──────────────────────┴─────────────────────────────────────┴──────────────┘
-
-  Total Monthly Waste Found:  $1,685.80
-  Total Annual Savings:       $20,229.60
-
-  Detailed report: finops report --format html --output finops-report.html
-```
-
-## Supported Checks
-
-| Check | Description | Typical Savings |
-|-------|-------------|-----------------|
-| `ec2_rightsizing` | Find EC2 instances with avg CPU < 20% over 14 days, recommend smaller type | 30-50% per instance |
-| `nat_gateway` | Detect NAT Gateways in dev/staging, flag unused gateways (0 bytes) | $30-45/month per gateway |
-| `spot_candidates` | Identify stateless ASGs / EKS node groups suitable for Spot | 60-70% per instance |
-| `unused_resources` | Unattached EBS, unused EIPs, old snapshots, idle load balancers, stopped instances | Varies widely |
-| `reserved_instances` | Recommend RIs or Savings Plans for 24/7 on-demand production workloads | 30-40% per instance |
-| `elasticache_scheduling` | Dev/staging ElastiCache clusters that can be stopped off-hours | ~50% per cluster |
-| `rds_rightsizing` | Oversized RDS instances, unnecessary Multi-AZ in non-prod | 30-50% per instance |
-
-## Multi-Account Support
-
-### Via AWS Organizations
-
-```bash
-finops scan --org --role-name FinOpsReadOnly --management-profile mgmt
-```
-
-The tool assumes a read-only role in each member account. See [examples/multi-account.md](examples/multi-account.md) for IAM role setup.
-
-### Via Profile List
-
-```bash
-finops scan --profiles dev,staging,production
-```
-
-Or define accounts in `config/default.yaml`:
-
+### Pluggable AI
+Bring your own LLM API key:
 ```yaml
-accounts:
-  - profile: dev
-    name: Development
-  - profile: staging
-    name: Staging
-  - profile: production
-    name: Production
+# finops.yaml
+llm:
+  provider: claude    # or 'openai'
+  api_key_env: ANTHROPIC_API_KEY
 ```
-
-## Report Output Formats
-
-| Format | Command | Use Case |
-|--------|---------|----------|
-| Terminal | `finops scan` (default) | Interactive review, quick checks |
-| JSON | `finops report --format json` | CI/CD integration, programmatic access |
-| CSV | `finops report --format csv` | Import to spreadsheets, data analysis |
-| HTML | `finops report --format html` | Share with management, email reports |
 
 ## Architecture
 
 ```
-                         ┌───────────────────┐
-                         │   finops scan     │
-                         │   (CLI entry)     │
-                         └────────┬──────────┘
-                                  │
-                         ┌────────▼──────────┐
-                         │     Scanner       │
-                         │  (orchestrator)   │
-                         └────────┬──────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼───────┐ ┌────────▼───────┐ ┌────────▼───────┐
-     │  AWS Account 1 │ │  AWS Account 2 │ │  AWS Account N │
-     │  (assume role) │ │  (assume role) │ │  (assume role) │
-     └────────┬───────┘ └────────┬───────┘ └────────┬───────┘
-              │                   │                   │
-              └───────────┬───────┘───────────────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          │               │               │
-   ┌──────▼─────┐ ┌──────▼─────┐ ┌──────▼─────┐
-   │ EC2 Right- │ │ NAT Gate-  │ │ Unused     │  ... (all checks)
-   │ sizing     │ │ way Check  │ │ Resources  │
-   └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
-          │               │               │
-          └───────────────┼───────────────┘
-                          │
-                 ┌────────▼──────────┐
-                 │   Report Engine   │
-                 │ (terminal/json/   │
-                 │  csv/html)        │
-                 └───────────────────┘
+Browser (HTMX + Chart.js + D3.js)
+    │
+FastAPI Application
+    ├── HTMX Pages (11 server-rendered pages)
+    ├── REST API (/api/v1/* — 23+ endpoints)
+    ├── SSE Events (async scan progress)
+    │
+    ├── Service Layer
+    │   ├── ScannerService      — async scan orchestration
+    │   ├── ErrorBudgetService  — SLO tracking + burn rate
+    │   ├── BudgetService       — financial budget + forecast
+    │   ├── CostService         — trends, comparison
+    │   ├── SafetyAnalyzer      — traffic + deps + error budget gate
+    │   └── AI Recommendations  — pluggable LLM (Claude/OpenAI)
+    │
+    ├── Provider Layer (pluggable)
+    │   ├── AWS (boto3)
+    │   ├── Azure (stub)
+    │   └── GCP (stub)
+    │
+    └── SQLite (aiosqlite) — 16 tables, zero setup
 ```
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Backend | Python 3.9+, FastAPI, uvicorn |
+| Frontend | Jinja2, HTMX, Chart.js, D3.js |
+| Database | SQLite (aiosqlite) — zero config |
+| Cloud | boto3 (AWS) |
+| AI | Anthropic Claude / OpenAI (pluggable) |
+| CLI | Click + Rich |
+| Testing | pytest + moto |
 
 ## Configuration
 
-Create a `finops.yaml` or use the defaults:
-
 ```yaml
+# finops.yaml
+accounts:
+  - profile: production
+    name: Production
+  - profile: staging
+    name: Staging
+
 thresholds:
-  ec2_cpu_avg_percent: 20      # Flag instances below this CPU %
-  ec2_lookback_days: 14        # CloudWatch metrics lookback window
-  snapshot_age_days: 90        # Flag snapshots older than this
-  idle_lb_days: 7              # Flag LBs with 0 connections for this many days
-  stopped_instance_days: 7     # Flag stopped instances older than this
+  ec2_cpu_avg_percent: 20
+  snapshot_age_days: 90
 
-accounts: []                   # List of account profiles to scan
+web:
+  host: 127.0.0.1
+  port: 8080
 
-checks:
-  ec2_rightsizing: true
-  nat_gateway: true
-  spot_candidates: true
-  unused_resources: true
-  reserved_instances: true
-  elasticache_scheduling: true
-  rds_rightsizing: true
+llm:
+  provider: claude
+  api_key_env: ANTHROPIC_API_KEY
+
+database:
+  path: ~/.finops/finops.db
 ```
 
-## Requirements
+## API
 
-- Python 3.9+
-- boto3 (AWS SDK)
-- AWS credentials with read-only access (SecurityAudit policy or equivalent)
-- Recommended IAM policy: `ViewOnlyAccess` + `CloudWatchReadOnlyAccess`
+Full OpenAPI docs available at `http://localhost:8080/docs` when running.
 
-## Installation
-
-### From PyPI
-
-```bash
-pip install aws-finops-toolkit
+Key endpoints:
+```
+GET  /api/v1/health                    Health check
+POST /api/v1/accounts                  Add cloud account
+POST /api/v1/scans                     Trigger scan
+GET  /api/v1/findings                  List findings (filterable)
+POST /api/v1/error-budgets             Set SLO target
+GET  /api/v1/costs/overview            Cost summary
+POST /api/v1/ai/analyze                Run AI analysis
+GET  /api/v1/services/dependency-graph D3.js graph data
+POST /api/v1/incidents                 Record incident + user impact
 ```
 
-### From Source
+## Development
 
 ```bash
-git clone https://github.com/junegunn/aws-finops-toolkit.git
+git clone https://github.com/junegu/aws-finops-toolkit.git
 cd aws-finops-toolkit
-pip install -e ".[dev]"
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev,web]"
+pytest
 ```
 
-## Contributing
+## Blog Series
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+This tool is the companion code for the **"FinOps for SREs"** article series:
+
+- [Part 1: How I Found $12K/Year in AWS Waste](https://medium.com/@junegu)
+- Part 0: Pre-Flight: 9 Checks Before Cutting Costs
+- Part 2: Downsizing Without Downtime
+
+Read the full series on [Medium](https://medium.com/@junegu).
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT
 
 ## Author
 
-**June Gu** — Site Reliability Engineer at NAVER Corporation (Placen)
+**June Gu** — Site Reliability Engineer at NAVER Corporation (Placen). Ex-Coupang.
 
-- Previously: Coupang (NYSE: CPNG), Hyundai IT&E, Lotte Shopping
-- 5+ years building and optimizing cloud infrastructure on AWS
-- This tool is based on real FinOps work across multi-account AWS environments
+Building reliable infrastructure at scale. Relocating to Canada.
 
-LinkedIn: [June Gu](https://www.linkedin.com/in/junegu)
+- [LinkedIn](https://linkedin.com/in/junegu)
+- [Medium](https://medium.com/@junegu)
+- [GitHub](https://github.com/junegu)
