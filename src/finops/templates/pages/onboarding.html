@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div style="max-width:600px;margin:2rem auto;text-align:center">
+    <h2>Welcome to FinOps Platform</h2>
+    <p style="color:var(--text-muted);margin:1rem 0">Let's set up your first cloud account and run a scan.</p>
+</div>
+
+<div style="max-width:600px;margin:0 auto">
+    <!-- Step 1: Add Account -->
+    <div class="section" id="step-1">
+        <h3>Step 1: Connect a Cloud Account</h3>
+        <form hx-post="/api/v1/accounts" hx-swap="none"
+              hx-on::after-request="document.getElementById('step-2').style.display='block'; this.style.opacity='0.5'">
+            <div class="form-group">
+                <label>Provider</label>
+                <select name="provider">
+                    <option value="aws">AWS</option>
+                    <option value="azure">Azure</option>
+                    <option value="gcp">GCP</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Account Name</label>
+                <input type="text" name="name" placeholder="e.g., Production" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Connect Account</button>
+        </form>
+    </div>
+
+    <!-- Step 2: Set Budget -->
+    <div class="section" id="step-2" style="display:none">
+        <h3>Step 2: Set a Monthly Budget</h3>
+        <form hx-post="/api/v1/budgets" hx-swap="none"
+              hx-on::after-request="document.getElementById('step-3').style.display='block'; this.style.opacity='0.5'">
+            <div class="form-group">
+                <label>Budget Name</label>
+                <input type="text" name="name" value="Monthly Cloud Budget" required>
+            </div>
+            <div class="form-group">
+                <label>Amount (USD/month)</label>
+                <input type="number" name="budget_amount" placeholder="10000" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Set Budget</button>
+        </form>
+    </div>
+
+    <!-- Step 3: Run Scan -->
+    <div class="section" id="step-3" style="display:none">
+        <h3>Step 3: Run Your First Scan</h3>
+        <p style="color:var(--text-muted);margin-bottom:1rem">
+            We'll scan your cloud account for cost optimization opportunities.
+        </p>
+        <a href="/scans" class="btn btn-success">Go to Scans</a>
+        <a href="/" class="btn" style="background:#e2e8f0;margin-left:0.5rem">Go to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
