@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Import / Export{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Import / Export Data</h2>
+</div>
+
+<div class="section">
+    <h3>Export</h3>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        <a href="/api/v1/export/scans" class="btn btn-primary" download>Export Scans (JSON)</a>
+        <a href="/api/v1/export/findings" class="btn btn-primary" download>Export Findings (JSON)</a>
+        <a href="/api/v1/export/error-budgets" class="btn btn-primary" download>Export Error Budgets (JSON)</a>
+        <a href="/api/v1/export/budgets" class="btn btn-primary" download>Export Budgets (JSON)</a>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Import</h3>
+    <form action="/api/v1/import" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Upload JSON file</label>
+            <input type="file" name="file" accept=".json" required>
+        </div>
+        <button type="submit" class="btn btn-success">Import Data</button>
+    </form>
+</div>
+{% endblock %}

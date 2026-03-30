@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Alerts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Alert Configuration</h2>
+</div>
+
+<div class="section">
+    <h3>Add Alert</h3>
+    <form hx-post="/api/v1/alerts" hx-swap="none" hx-on::after-request="location.reload()">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:end">
+            <div class="form-group" style="flex:1;min-width:150px">
+                <label>Name</label>
+                <input type="text" name="name" placeholder="Budget alert" required>
+            </div>
+            <div class="form-group" style="min-width:120px">
+                <label>Type</label>
+                <select name="alert_type">
+                    <option value="budget">Budget breach</option>
+                    <option value="error_budget">Error budget</option>
+                    <option value="critical_finding">Critical finding</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex:2;min-width:200px">
+                <label>Slack Webhook URL</label>
+                <input type="url" name="webhook_url" placeholder="https://hooks.slack.com/services/...">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Alert</button>
+        </div>
+    </form>
+</div>
+
+{% if alerts %}
+<div class="section">
+    <h3>Configured Alerts</h3>
+    <table class="data-table">
+        <thead><tr><th>Name</th><th>Type</th><th>Channel</th><th>Last Triggered</th><th>Actions</th></tr></thead>
+        <tbody>
+            {% for a in alerts %}
+            <tr>
+                <td>{{ a.name }}</td>
+                <td><span class="badge badge-info">{{ a.alert_type }}</span></td>
+                <td>{{ a.channel }}</td>
+                <td>{{ a.last_triggered or 'Never' }}</td>
+                <td><button class="btn btn-danger" style="font-size:0.7rem;padding:0.25rem 0.5rem"
+                    hx-delete="/api/v1/alerts/{{ a.id }}" hx-swap="none"
+                    hx-on::after-request="location.reload()">Delete</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}
