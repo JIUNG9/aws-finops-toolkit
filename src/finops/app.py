@@ -51,7 +51,10 @@ def create_app() -> FastAPI:
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # Register routes
-    from finops.web.routes import pages, accounts, scans, findings, error_budgets, budgets, costs, services, ai, incidents
+    from finops.web.routes import (
+        pages, accounts, scans, findings, error_budgets,
+        budgets, costs, services, ai, incidents, alerts, import_export,
+    )
 
     app.include_router(pages.router)
     app.include_router(accounts.router, prefix="/api/v1")
@@ -63,6 +66,8 @@ def create_app() -> FastAPI:
     app.include_router(services.router, prefix="/api/v1")
     app.include_router(ai.router, prefix="/api/v1")
     app.include_router(incidents.router, prefix="/api/v1")
+    app.include_router(alerts.router, prefix="/api/v1")
+    app.include_router(import_export.router, prefix="/api/v1")
 
     @app.get("/api/v1/health")
     async def health():

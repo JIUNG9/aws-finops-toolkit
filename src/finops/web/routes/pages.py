@@ -89,6 +89,25 @@ async def incidents_page(request: Request, db: Database = Depends(get_db)):
     return templates.TemplateResponse(request, "pages/incidents.html", {"incidents": incidents})
 
 
+@router.get("/alerts", response_class=HTMLResponse)
+async def alerts_page(request: Request, db: Database = Depends(get_db)):
+    import json
+    alerts = await db.fetchall("SELECT * FROM alerts ORDER BY created_at DESC")
+    for a in alerts:
+        a["config"] = json.loads(a.get("config", "{}"))
+    return templates.TemplateResponse(request, "pages/alerts.html", {"alerts": alerts})
+
+
+@router.get("/import-export", response_class=HTMLResponse)
+async def import_export_page(request: Request):
+    return templates.TemplateResponse(request, "pages/import_export.html", {})
+
+
+@router.get("/onboarding", response_class=HTMLResponse)
+async def onboarding_page(request: Request):
+    return templates.TemplateResponse(request, "pages/onboarding.html", {})
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, db: Database = Depends(get_db)):
     accounts = await db.fetchall("SELECT * FROM cloud_accounts ORDER BY created_at DESC")
