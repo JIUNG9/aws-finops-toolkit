@@ -27,8 +27,11 @@
                 <li class="nav-section">FinOps</li>
                 <li><a href="/budgets" class="{% if '/budgets' in request.url.path %}active{% endif %}">Budgets</a></li>
                 <li><a href="/costs" class="{% if '/costs' in request.url.path %}active{% endif %}">Cost Tracking</a></li>
+                <li class="nav-section">Operations</li>
+                <li><a href="/alerts" class="{% if '/alerts' in request.url.path %}active{% endif %}">Alerts</a></li>
                 <li class="nav-section">Settings</li>
                 <li><a href="/settings" class="{% if '/settings' in request.url.path %}active{% endif %}">Settings</a></li>
+                <li><a href="/import-export" class="{% if '/import-export' in request.url.path %}active{% endif %}">Import/Export</a></li>
             </ul>
             <div class="sidebar-footer">
                 <a href="https://github.com/junegu/aws-finops-toolkit" target="_blank">GitHub</a>
