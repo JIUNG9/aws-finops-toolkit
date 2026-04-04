@@ -63,16 +63,20 @@ async def cost_trend(days: int = 90, db: Database = Depends(get_db)):
 @router.get("/costs/comparison")
 async def cost_comparison(db: Database = Depends(get_db)):
     # Compare latest two scans
-    scans = await db.fetchall("SELECT id, created_at FROM scans WHERE status = 'completed' ORDER BY created_at DESC LIMIT 2")
+    scans = await db.fetchall(
+        "SELECT id, created_at FROM scans WHERE status = 'completed' ORDER BY created_at DESC LIMIT 2"
+    )
     if len(scans) < 2:
         return {"before": {}, "after": {}, "delta": {}}
 
     after_findings = await db.fetchall(
-        "SELECT check_name, SUM(estimated_monthly_savings) as savings FROM findings WHERE scan_id = ? GROUP BY check_name",
+        "SELECT check_name, SUM(estimated_monthly_savings) as savings"
+        " FROM findings WHERE scan_id = ? GROUP BY check_name",
         (scans[0]["id"],),
     )
     before_findings = await db.fetchall(
-        "SELECT check_name, SUM(estimated_monthly_savings) as savings FROM findings WHERE scan_id = ? GROUP BY check_name",
+        "SELECT check_name, SUM(estimated_monthly_savings) as savings"
+        " FROM findings WHERE scan_id = ? GROUP BY check_name",
         (scans[1]["id"],),
     )
     return {"before": before_findings, "after": after_findings}

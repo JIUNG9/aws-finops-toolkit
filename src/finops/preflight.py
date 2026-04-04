@@ -192,8 +192,8 @@ class TrafficPattern:
     dependencies_upstream: list[str] = field(default_factory=list)
     dependencies_downstream: list[str] = field(default_factory=list)
     seasonal_notes: str = ""            # e.g., "month-end spike", "holiday peak"
-    holiday_calendar: list[str] = field(default_factory=list)  # e.g., ["Chuseok 2026-09-14..09-17", "Lunar New Year 2027-01-28..01-30"]
-    batch_schedules: list[str] = field(default_factory=list)   # e.g., ["daily 02:00 UTC ETL", "monthly 1st billing-run"]
+    holiday_calendar: list[str] = field(default_factory=list)   # e.g., ["Chuseok 2026-09-14..09-17"]
+    batch_schedules: list[str] = field(default_factory=list)   # e.g., ["daily 02:00 UTC ETL"]
     has_holiday_pattern: bool = False     # True if traffic spikes correlate with holidays
     has_batch_system: bool = False        # True if batch jobs affect resource utilization
 
@@ -427,7 +427,10 @@ class PreflightAnalyzer:
         if result.traffic.peak_to_avg_ratio > peak_warn:
             result.findings.append(PreflightFinding(
                 check_name="traffic",
-                message=f"High peak:avg ratio ({result.traffic.peak_to_avg_ratio:.1f}x, threshold: {peak_warn}x) — careful with right-sizing",
+                message=(
+                    f"High peak:avg ratio ({result.traffic.peak_to_avg_ratio:.1f}x,"
+                    f" threshold: {peak_warn}x) — careful with right-sizing"
+                ),
                 severity=Severity.WARNING,
                 details={"peak_qps": result.traffic.peak_qps_30d, "avg_qps": result.traffic.current_qps},
             ))
@@ -455,7 +458,10 @@ class PreflightAnalyzer:
         elif budget < go_threshold:
             result.findings.append(PreflightFinding(
                 check_name="qos",
-                message=f"Error budget at {budget:.0f}% (need >{go_threshold}% for full optimization) — limit to low-risk",
+                message=(
+                    f"Error budget at {budget:.0f}% (need >{go_threshold}%"
+                    " for full optimization) — limit to low-risk"
+                ),
                 severity=Severity.WARNING,
             ))
 
@@ -466,7 +472,10 @@ class PreflightAnalyzer:
         if result.cache.hit_rate_pct > cache_warn:
             result.findings.append(PreflightFinding(
                 check_name="cache",
-                message=f"High cache dependency ({result.cache.hit_rate_pct:.0f}% hit rate, threshold: {cache_warn}%) — backend CPU is misleading",
+                message=(
+                    f"High cache dependency ({result.cache.hit_rate_pct:.0f}% hit rate,"
+                    f" threshold: {cache_warn}%) — backend CPU is misleading"
+                ),
                 severity=Severity.WARNING,
                 details={"backend_load_without_cache": result.cache.backend_load_without_cache_pct},
             ))
@@ -482,7 +491,10 @@ class PreflightAnalyzer:
         if result.incidents.has_recent_capacity_incident:
             result.findings.append(PreflightFinding(
                 check_name="incidents",
-                message=f"Capacity-related incident within {cooldown}-day cooldown ({result.incidents.capacity_related_count} found)",
+                message=(
+                    f"Capacity-related incident within {cooldown}-day cooldown"
+                    f" ({result.incidents.capacity_related_count} found)"
+                ),
                 severity=Severity.WARNING,
             ))
 
@@ -796,7 +808,8 @@ class PreflightAnalyzer:
           - Team availability
         """
         priority_config = self.pf.priority
-        tag_key = priority_config.get("tag_key", "Priority")
+        # tag_key used by TODO implementation below
+        priority_config.get("tag_key", "Priority")
 
         check = PriorityCheck()
 
