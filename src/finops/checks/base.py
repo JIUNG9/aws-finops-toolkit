@@ -27,7 +27,7 @@ class CheckResult:
     resource_type: str          # e.g., "EC2 Instance", "NAT Gateway", "EBS Volume"
     resource_id: str            # e.g., "i-0a1b2c3d", "nat-0abc1234", "vol-0ff1234a"
     resource_name: str          # e.g., "web-prod", from Name tag
-    current_monthly_cost: float # Current estimated monthly cost in USD
+    current_monthly_cost: float  # Current estimated monthly cost in USD
     recommended_action: str     # e.g., "Downsize to m5.large (avg CPU 8%)"
     estimated_monthly_savings: float  # Estimated monthly savings in USD
     severity: str = "medium"    # "low", "medium", "high", "critical"

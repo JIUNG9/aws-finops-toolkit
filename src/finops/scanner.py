@@ -253,7 +253,7 @@ class Scanner:
                 if findings:
                     console.print(f"    Found [yellow]{len(findings)}[/yellow] optimization(s)")
                 else:
-                    console.print(f"    [green]No issues found[/green]")
+                    console.print("    [green]No issues found[/green]")
             except Exception as e:
                 error_msg = f"Check '{check.name}' failed: {str(e)}"
                 account_results.errors.append(error_msg)

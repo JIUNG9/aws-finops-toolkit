@@ -43,7 +43,10 @@ async def trigger_analysis(db: Database = Depends(get_db)):
             from finops.llm.base import get_llm_provider
             provider_name = "claude" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
             llm = get_llm_provider(provider_name, api_key=api_key)
-            prompt = f"Analyze these AWS cost findings and provide prioritized recommendations:\n{json.dumps([dict(f) for f in findings[:10]], indent=2)}"
+            prompt = (
+                "Analyze these AWS cost findings and provide prioritized recommendations:\n"
+                + json.dumps([dict(f) for f in findings[:10]], indent=2)
+            )
             response = await llm.generate(prompt, system_prompt="You are an SRE cost optimization advisor.")
 
             rec_id = str(uuid.uuid4())
@@ -56,17 +59,23 @@ async def trigger_analysis(db: Database = Depends(get_db)):
             )
             await db.commit()
             return {"id": rec_id, "status": "completed", "provider": response.provider}
-        except Exception as e:
+        except Exception:
             pass
 
     # Fallback: rule-based recommendations
     total_savings = sum(f["estimated_monthly_savings"] for f in findings)
     rec_id = str(uuid.uuid4())
-    body = f"## Cost Optimization Summary\n\n"
-    body += f"Found **{len(findings)} open findings** with **${total_savings:.0f}/month** in potential savings.\n\n"
+    body = "## Cost Optimization Summary\n\n"
+    body += (
+        f"Found **{len(findings)} open findings** with"
+        f" **${total_savings:.0f}/month** in potential savings.\n\n"
+    )
     body += "### Top Actions\n"
     for i, f in enumerate(findings[:5], 1):
-        body += f"{i}. **{f['check_name']}** — {f['resource_name']}: {f['recommended_action']} (saves ${f['estimated_monthly_savings']:.0f}/mo)\n"
+        body += (
+            f"{i}. **{f['check_name']}** — {f['resource_name']}:"
+            f" {f['recommended_action']} (saves ${f['estimated_monthly_savings']:.0f}/mo)\n"
+        )
 
     await db.execute(
         """INSERT INTO ai_recommendations

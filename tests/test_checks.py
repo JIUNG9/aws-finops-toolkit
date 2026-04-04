@@ -21,9 +21,17 @@ from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.reserved_instances import ReservedInstancesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.rds_rightsizing import RDSRightsizingCheck
-from finops.checks.vpc_waste import VPCWasteCheck, NAT_GATEWAY_MONTHLY_COST, EIP_MONTHLY_COST, DIRECTORY_SIMPLE_AD_MONTHLY, DIRECTORY_MICROSOFT_AD_MONTHLY, WORKSPACES_BUNDLE_COSTS
-from finops.checks.cloudwatch_waste import CloudWatchWasteCheck, CW_STORAGE_PER_GB_MONTH, CW_INGESTION_PER_GB, BYTES_PER_GB
-from finops.checks.s3_lifecycle import S3LifecycleCheck, S3_STANDARD_PER_GB, S3_STANDARD_IA_PER_GB, S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS, S3_IA_MIN_BILLABLE_SIZE_KB
+from finops.checks.vpc_waste import (
+    VPCWasteCheck, NAT_GATEWAY_MONTHLY_COST, EIP_MONTHLY_COST,
+    DIRECTORY_SIMPLE_AD_MONTHLY, DIRECTORY_MICROSOFT_AD_MONTHLY, WORKSPACES_BUNDLE_COSTS,
+)
+from finops.checks.cloudwatch_waste import (
+    CloudWatchWasteCheck, CW_STORAGE_PER_GB_MONTH, CW_INGESTION_PER_GB, BYTES_PER_GB,
+)
+from finops.checks.s3_lifecycle import (
+    S3LifecycleCheck, S3_STANDARD_PER_GB, S3_STANDARD_IA_PER_GB,
+    S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS, S3_IA_MIN_BILLABLE_SIZE_KB,
+)
 from finops.config import FinOpsConfig
 
 
