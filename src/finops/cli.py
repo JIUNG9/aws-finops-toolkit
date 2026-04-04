@@ -110,7 +110,10 @@ def preflight(
     effective_region = region or "us-east-1"
 
     console.print(f"\n[bold]AWS FinOps Toolkit[/bold] v{__version__} — Pre-Flight Analysis")
-    console.print(f"Target: [cyan]{target}[/cyan]  Profile: [cyan]{profile}[/cyan]  Region: [cyan]{effective_region}[/cyan]")
+    console.print(
+        f"Target: [cyan]{target}[/cyan]  Profile: [cyan]{profile}[/cyan]"
+        f"  Region: [cyan]{effective_region}[/cyan]"
+    )
 
     # Show which config sources are active
     pf = config.preflight
@@ -118,7 +121,10 @@ def preflight(
     svc = pf.get_service(target) or pf.get_service_by_resource(target)
     if svc:
         console.print(f"Service: [cyan]{svc.name}[/cyan] (from service catalog, priority: {svc.priority})")
-    console.print(f"APM: [cyan]{apm_source}[/cyan]  SLO: p99<{pf.slo.get('p99_latency_ms', 200)}ms, {pf.slo.get('availability_pct', 99.9)}% avail\n")
+    console.print(
+        f"APM: [cyan]{apm_source}[/cyan]  SLO: p99<{pf.slo.get('p99_latency_ms', 200)}ms,"
+        f" {pf.slo.get('availability_pct', 99.9)}% avail\n"
+    )
 
     # TODO: Create boto3 session from profile
     # session = boto3.Session(profile_name=profile, region_name=effective_region)
@@ -413,7 +419,7 @@ def watch(
     """
     # TODO: Implement cron-like scheduling using sched or APScheduler
     # For now, print the intended schedule and exit
-    console.print(f"[bold]Watch mode[/bold]")
+    console.print("[bold]Watch mode[/bold]")
     console.print(f"  Schedule: {schedule}")
     console.print(f"  Profile:  {profile or 'default'}")
     console.print(f"  Format:   {output_format}")

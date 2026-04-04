@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from finops.db.database import Database
 from finops.web.deps import get_db
-from finops.web.schemas import ServiceCreate, ServiceOut, DependencyCreate, DependencyGraph, DependencyGraphNode, DependencyGraphLink
+from finops.web.schemas import (
+    ServiceCreate, ServiceOut, DependencyCreate,
+    DependencyGraph, DependencyGraphNode, DependencyGraphLink,
+)
 
 router = APIRouter(tags=["services"])
 

@@ -30,7 +30,6 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -266,7 +265,8 @@ class VPCWasteCheck(BaseCheck):
         processing zero bytes is definitively unused and safe to delete.
         """
         results: list[CheckResult] = []
-        idle_days = self.config.thresholds.get("nat_idle_days", 14)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("nat_idle_days", 14)
 
         # TODO: Uncomment and implement with real boto3 calls
         # ec2_client = session.client("ec2", region_name=region)
@@ -348,7 +348,8 @@ class VPCWasteCheck(BaseCheck):
         are effectively unusable but still billed.
         """
         results: list[CheckResult] = []
-        stale_days = self.config.thresholds.get("workspace_stale_days", 30)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("workspace_stale_days", 30)
 
         # TODO: Uncomment and implement with real boto3 calls
         # ws_client = session.client("workspaces", region_name=region)
@@ -508,7 +509,8 @@ class VPCWasteCheck(BaseCheck):
         If no data has been transferred recently, the gateway may be abandoned.
         """
         results: list[CheckResult] = []
-        idle_days = self.config.thresholds.get("storage_gw_idle_days", 30)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("storage_gw_idle_days", 30)
 
         # TODO: Uncomment and implement with real boto3 calls
         # sgw_client = session.client("storagegateway", region_name=region)

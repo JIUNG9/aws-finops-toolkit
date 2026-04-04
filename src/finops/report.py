@@ -12,13 +12,12 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, BaseLoader
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 
 from finops.config import FinOpsConfig
 

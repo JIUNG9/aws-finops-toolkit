@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Optional
 
 from finops.db.database import Database
 
@@ -31,7 +30,10 @@ class SafetyReport:
             "id": self.id,
             "finding_id": self.finding_id,
             "overall": self.overall,
-            "verdicts": [{"step": v.step, "status": v.status, "summary": v.summary, "details": v.details} for v in self.verdicts],
+            "verdicts": [
+                {"step": v.step, "status": v.status, "summary": v.summary, "details": v.details}
+                for v in self.verdicts
+            ],
             "checklist": self.checklist,
         }
 
@@ -54,7 +56,10 @@ async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyRepor
     # Check if resource has high cost (proxy for high traffic dependency)
     if finding["current_monthly_cost"] > 200:
         traffic_verdict.status = "caution"
-        traffic_verdict.summary = f"High-cost resource (${finding['current_monthly_cost']}/mo) — verify traffic patterns before downsize"
+        traffic_verdict.summary = (
+            f"High-cost resource (${finding['current_monthly_cost']}/mo)"
+            " — verify traffic patterns before downsize"
+        )
     verdicts.append(traffic_verdict)
 
     # Step 2: Dependency Check

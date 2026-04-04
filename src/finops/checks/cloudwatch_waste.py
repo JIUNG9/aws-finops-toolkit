@@ -28,7 +28,6 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -181,7 +180,8 @@ class CloudWatchWasteCheck(BaseCheck):
         policy would clean up old data automatically.
         """
         results: list[CheckResult] = []
-        inactive_days = self.config.thresholds.get("log_inactive_days", 90)
+        # inactive_days used by TODO implementation below
+        self.config.thresholds.get("log_inactive_days", 90)
 
         # TODO: Uncomment and implement with real boto3 calls
         # logs_client = session.client("logs", region_name=region)
@@ -278,12 +278,9 @@ class CloudWatchWasteCheck(BaseCheck):
         will ever look at.
         """
         results: list[CheckResult] = []
-        non_prod_max_retention = self.config.thresholds.get(
-            "log_retention_non_prod_days", 90
-        )
-        prod_max_retention = self.config.thresholds.get(
-            "log_retention_prod_days", 365
-        )
+        # Thresholds used by TODO implementation below
+        self.config.thresholds.get("log_retention_non_prod_days", 90)
+        self.config.thresholds.get("log_retention_prod_days", 365)
 
         # TODO: Uncomment and implement with real boto3 calls
         # logs_client = session.client("logs", region_name=region)
@@ -378,9 +375,8 @@ class CloudWatchWasteCheck(BaseCheck):
           - Subscription filters to route to cheaper storage (S3)
         """
         results: list[CheckResult] = []
-        ingestion_threshold_gb = self.config.thresholds.get(
-            "log_ingestion_threshold_gb", 100
-        )
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("log_ingestion_threshold_gb", 100)
 
         # TODO: Uncomment and implement with real boto3 calls
         # logs_client = session.client("logs", region_name=region)

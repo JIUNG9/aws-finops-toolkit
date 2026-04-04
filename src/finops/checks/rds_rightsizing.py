@@ -25,7 +25,6 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -97,8 +96,9 @@ class RDSRightsizingCheck(BaseCheck):
         """
         results: list[CheckResult] = []
 
-        cpu_threshold = self.config.thresholds.get("ec2_cpu_avg_percent", 20)
-        lookback_days = self.config.thresholds.get("ec2_lookback_days", 14)
+        # Thresholds used by TODO implementation below
+        self.config.thresholds.get("ec2_cpu_avg_percent", 20)
+        self.config.thresholds.get("ec2_lookback_days", 14)
 
         # TODO: Uncomment and implement with real boto3 calls
         #

@@ -100,12 +100,10 @@ class AWSClient:
 
         # Get a session for the source account
         source_session = self.get_session(profile=source_profile, region=region)
-        sts_client = source_session.client("sts", config=DEFAULT_BOTO_CONFIG)
-
-        # Build the role ARN
-        role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
 
         # TODO: Uncomment for real cross-account access
+        # sts_client = source_session.client("sts", config=DEFAULT_BOTO_CONFIG)
+        # role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
         # response = sts_client.assume_role(
         #     RoleArn=role_arn,
         #     RoleSessionName=session_name,
