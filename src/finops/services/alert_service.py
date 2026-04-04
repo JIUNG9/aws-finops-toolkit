@@ -6,6 +6,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Optional
 
 from finops.db.database import Database
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 async def create_alert(db: Database, name: str, alert_type: str,
-                       channel: str = "slack", config: dict = None) -> dict:
+                       channel: str = "slack", config: Optional[dict[str, Any]] = None) -> dict[str, str]:
     """Create an alert configuration."""
     alert_id = str(uuid.uuid4())
     await db.execute(

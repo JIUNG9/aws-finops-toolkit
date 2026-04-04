@@ -155,7 +155,7 @@ class PreflightConfig:
     def get_priority_rules(self, level: str) -> dict[str, Any]:
         """Get priority rules for a given level (P0, P1, P2, P3)."""
         levels = self.priority.get("levels", {})
-        return levels.get(level, levels.get("P2", {}))
+        return dict(levels.get(level, levels.get("P2", {})))
 
 
 @dataclass
