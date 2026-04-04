@@ -9,11 +9,11 @@ from finops.db.database import Database
 
 
 def get_db(request: Request) -> Database:
-    return request.app.state.db
+    return request.app.state.db  # type: ignore[no-any-return]
 
 
 def get_config(request: Request) -> FinOpsConfig:
-    return request.app.state.config
+    return request.app.state.config  # type: ignore[no-any-return]
 
 
 def is_demo(request: Request) -> bool:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -57,8 +58,8 @@ async def get_scan(scan_id: str, db: Database = Depends(get_db)):
 @router.get("/scans/{scan_id}/findings")
 async def get_scan_findings(
     scan_id: str,
-    severity: str = None,
-    status: str = None,
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
     db: Database = Depends(get_db),

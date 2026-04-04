@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from finops.db.database import Database
 
 
-DEMO_FINDINGS = [
+DEMO_FINDINGS: list[dict[str, object]] = [
     {
         "check_name": "ec2_rightsizing", "resource_type": "EC2 Instance",
         "resource_id": "i-0abc123def456", "resource_name": "api-server-prod-1",
@@ -101,7 +101,9 @@ async def create_demo_scan(db: Database) -> str:
             (account_id, "aws", "Demo Account", '{"profile": "demo"}'),
         )
 
-    total_savings = sum(f["estimated_monthly_savings"] for f in DEMO_FINDINGS)
+    total_savings = 0.0
+    for f in DEMO_FINDINGS:
+        total_savings += float(str(f["estimated_monthly_savings"]))
     await db.execute(
         """INSERT INTO scans (id, account_id, status, started_at, completed_at,
         total_findings, total_monthly_savings, checks_run)

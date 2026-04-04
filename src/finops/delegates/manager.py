@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from finops.db.database import Database
 
@@ -19,12 +20,12 @@ class DelegateManager:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.running: dict[str, asyncio.Task] = {}
 
-    async def run_scan(self, account_id: str, scan_id: str, checks: list[str] = None) -> None:
+    async def run_scan(self, account_id: str, scan_id: str, checks: Optional[list[str]] = None) -> None:
         """Run a scan as a background task."""
         task = asyncio.create_task(self._execute_scan(account_id, scan_id, checks))
         self.running[scan_id] = task
 
-    async def _execute_scan(self, account_id: str, scan_id: str, checks: list[str] = None) -> None:
+    async def _execute_scan(self, account_id: str, scan_id: str, checks: Optional[list[str]] = None) -> None:
         """Execute a scan with semaphore-limited concurrency."""
         async with self.semaphore:
             try:

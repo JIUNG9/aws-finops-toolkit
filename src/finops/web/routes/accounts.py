@@ -31,6 +31,8 @@ async def create_account(body: AccountCreate, db: Database = Depends(get_db)):
     )
     await db.commit()
     row = await db.fetchone("SELECT * FROM cloud_accounts WHERE id = ?", (account_id,))
+    if not row:
+        raise HTTPException(status_code=404, detail="Account not found")
     row["config"] = json.loads(row["config"])
     return row
 
@@ -66,6 +68,8 @@ async def update_account(account_id: str, body: AccountUpdate, db: Database = De
         await db.execute(f"UPDATE cloud_accounts SET {', '.join(updates)} WHERE id = ?", tuple(params))
         await db.commit()
     row = await db.fetchone("SELECT * FROM cloud_accounts WHERE id = ?", (account_id,))
+    if not row:
+        raise HTTPException(status_code=404, detail="Account not found")
     row["config"] = json.loads(row["config"])
     return row
 
