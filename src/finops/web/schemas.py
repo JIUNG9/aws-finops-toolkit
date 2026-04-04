@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -15,10 +14,12 @@ class AccountCreate(BaseModel):
     name: str
     config: dict = {}
 
+
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
     config: Optional[dict] = None
     status: Optional[str] = None
+
 
 class AccountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -36,6 +37,7 @@ class AccountOut(BaseModel):
 class ScanTrigger(BaseModel):
     account_ids: list[str] = []
     checks: list[str] = []
+
 
 class ScanOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -70,6 +72,7 @@ class FindingOut(BaseModel):
     watch_list: int
     created_at: str
 
+
 class FindingUpdate(BaseModel):
     status: Optional[str] = None
     watch_list: Optional[int] = None
@@ -84,6 +87,7 @@ class ServiceCreate(BaseModel):
     stateless: bool = False
     owner_team: str = ""
 
+
 class ServiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -93,9 +97,11 @@ class ServiceOut(BaseModel):
     owner_team: str
     created_at: str
 
+
 class DependencyCreate(BaseModel):
     depends_on_id: str
     dependency_type: str = "runtime"
+
 
 class DependencyGraphNode(BaseModel):
     id: str
@@ -103,10 +109,12 @@ class DependencyGraphNode(BaseModel):
     priority: str
     group: int = 0
 
+
 class DependencyGraphLink(BaseModel):
     source: str
     target: str
     type: str = "runtime"
+
 
 class DependencyGraph(BaseModel):
     nodes: list[DependencyGraphNode]
@@ -120,6 +128,7 @@ class ErrorBudgetCreate(BaseModel):
     period_type: str = "monthly"
     slo_target_pct: float = 99.9
     p99_latency_target_ms: Optional[float] = None
+
 
 class ErrorBudgetOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -140,6 +149,7 @@ class ErrorBudgetOut(BaseModel):
             return 0.0
         return max(0.0, 100.0 * (1 - self.budget_consumed_minutes / self.budget_total_minutes))
 
+
 class ErrorBudgetEventCreate(BaseModel):
     event_type: str
     started_at: str
@@ -159,6 +169,7 @@ class BudgetCreate(BaseModel):
     budget_amount: float
     alert_threshold_pct: float = 80.0
 
+
 class BudgetOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -173,6 +184,7 @@ class BudgetOut(BaseModel):
     forecasted_amount: Optional[float]
     status: str
     created_at: str
+
 
 class BudgetSnapshotOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -190,10 +202,12 @@ class CostOverview(BaseModel):
     delta_pct: float
     total_savings_found: float
 
+
 class CostByAccount(BaseModel):
     account_id: str
     account_name: str
     cost: float
+
 
 class CostTrendPoint(BaseModel):
     date: str
@@ -226,6 +240,7 @@ class IncidentCreate(BaseModel):
     ended_at: Optional[str] = None
     user_impact_before: Optional[int] = None
     user_impact_after: Optional[int] = None
+
 
 class IncidentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

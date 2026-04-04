@@ -32,7 +32,6 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -111,9 +110,8 @@ class S3LifecycleCheck(BaseCheck):
         * Assumes 40% stays Standard, 35% moves to IA, 25% to Glacier IR
         """
         results: list[CheckResult] = []
-        min_size_gb = self.config.thresholds.get(
-            "s3_large_bucket_gb", DEFAULT_LARGE_BUCKET_GB
-        )
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("s3_large_bucket_gb", DEFAULT_LARGE_BUCKET_GB)
 
         # TODO: Uncomment and implement with real boto3 calls
         # s3_client = session.client("s3", region_name=region)
@@ -235,9 +233,8 @@ class S3LifecycleCheck(BaseCheck):
         small objects, it's actually MORE expensive.
         """
         results: list[CheckResult] = []
-        high_object_count = self.config.thresholds.get(
-            "s3_high_object_count", DEFAULT_HIGH_OBJECT_COUNT
-        )
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("s3_high_object_count", DEFAULT_HIGH_OBJECT_COUNT)
 
         # TODO: Uncomment and implement with real boto3 calls
         # s3_client = session.client("s3", region_name=region)
@@ -550,9 +547,8 @@ class S3LifecycleCheck(BaseCheck):
         it provides is essential for making lifecycle policy decisions.
         """
         results: list[CheckResult] = []
-        min_size_gb = self.config.thresholds.get(
-            "s3_large_bucket_gb", DEFAULT_LARGE_BUCKET_GB
-        )
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("s3_large_bucket_gb", DEFAULT_LARGE_BUCKET_GB)
 
         # TODO: Uncomment and implement with real boto3 calls
         # s3_client = session.client("s3", region_name=region)
