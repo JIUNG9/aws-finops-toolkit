@@ -33,6 +33,14 @@ Thumbs.db
 
 # Project
 .finops-last-scan.json
+.finops-last-preflight.json
 finops-report.*
 finops-reports/
 *.log
+.gstack/
+
+# Claude / AI artifacts
+.claude/
+HANDOVER.md
+PLAN.md
+STATUS.md
