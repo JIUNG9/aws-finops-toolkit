@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -16,7 +17,7 @@ router = APIRouter(tags=["ai"])
 
 
 @router.get("/ai/recommendations", response_model=list[AIRecommendationOut])
-async def list_recommendations(status: str = None, db: Database = Depends(get_db)):
+async def list_recommendations(status: Optional[str] = None, db: Database = Depends(get_db)):
     sql = "SELECT * FROM ai_recommendations"
     params = []
     if status:

@@ -647,7 +647,7 @@ class S3LifecycleCheck(BaseCheck):
         bucket_gb: float,
         object_count: int,
         frequent_access_ratio: float = 0.40,
-    ) -> dict[str, float]:
+    ) -> dict[str, float | str]:
         """Compare Intelligent-Tiering vs static lifecycle rule costs.
 
         This is the core analysis from real FinOps work. IT is not always
