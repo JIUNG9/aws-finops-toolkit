@@ -35,6 +35,20 @@ finops scan --profile production
 
 Open `http://localhost:8080` to see the dashboard.
 
+## Screenshots
+
+### Dashboard — Cost overview, error budget status, top findings
+![Dashboard](docs/images/dashboard.png)
+
+### Findings — Filterable table with severity, savings, and inline actions
+![Findings](docs/images/findings.png)
+
+### Error Budgets — SLO targets with burn rate tracking per service
+![Error Budgets](docs/images/error-budgets.png)
+
+### Services — Service catalog with D3.js dependency graph
+![Services](docs/images/services.png)
+
 ## Features
 
 ### Web Dashboard (HTMX + Chart.js)
