@@ -1,6 +1,5 @@
 """API endpoint smoke tests."""
 
-import asyncio
 import tempfile
 from pathlib import Path
 
@@ -59,7 +58,8 @@ class TestAccountsAPI:
 
     @pytest.mark.asyncio
     async def test_create_account(self, client):
-        r = await client.post("/api/v1/accounts", json={"name": "Test", "provider": "aws"})
+        body = {"name": "Test", "provider": "aws"}
+        r = await client.post("/api/v1/accounts", json=body)
         assert r.status_code == 201
         assert r.json()["name"] == "Test"
 
@@ -72,7 +72,8 @@ class TestScansAPI:
 
     @pytest.mark.asyncio
     async def test_trigger_scan(self, client):
-        r = await client.post("/api/v1/scans", json={"account_ids": [], "checks": []})
+        body = {"account_ids": [], "checks": []}
+        r = await client.post("/api/v1/scans", json=body)
         assert r.status_code == 201
 
 
@@ -134,4 +135,5 @@ class TestPages:
                  "/alerts", "/settings", "/import-export", "/onboarding"]
         for page in pages:
             r = await client.get(page)
-            assert r.status_code == 200, f"Page {page} returned {r.status_code}"
+            assert r.status_code == 200, \
+                f"Page {page} returned {r.status_code}"
