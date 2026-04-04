@@ -5,10 +5,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 
-@pytest.fixture
-def app_with_db():
+@pytest_asyncio.fixture
+async def app_with_db():
     """Create a FastAPI app with a temporary database."""
     from finops.app import create_app
     from finops.db.database import Database
@@ -17,30 +18,28 @@ def app_with_db():
 
     app = create_app()
     db_path = Path(tempfile.mktemp(suffix=".db"))
+    config = load_config()
+    db = Database(db_path)
+    await db.connect()
+    await db.run_migrations()
+    app.state.config = config
+    app.state.db = db
+    app.state.demo = True
+    await seed_demo_data(db)
 
-    async def setup():
-        config = load_config()
-        db = Database(db_path)
-        await db.connect()
-        await db.run_migrations()
-        app.state.config = config
-        app.state.db = db
-        app.state.demo = True
-        await seed_demo_data(db)
-        return db
-
-    db = asyncio.get_event_loop().run_until_complete(setup())
     yield app
-    asyncio.get_event_loop().run_until_complete(db.disconnect())
+
+    await db.disconnect()
     db_path.unlink(missing_ok=True)
 
 
-@pytest.fixture
-def client(app_with_db):
+@pytest_asyncio.fixture
+async def client(app_with_db):
     """Create a test client."""
     from httpx import AsyncClient, ASGITransport
     transport = ASGITransport(app=app_with_db)
-    return AsyncClient(transport=transport, base_url="http://test")
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
 
 class TestHealthEndpoint:
@@ -83,7 +82,7 @@ class TestFindingsAPI:
         r = await client.get("/api/v1/findings")
         assert r.status_code == 200
         data = r.json()
-        assert len(data) == 10  # demo data has 10 findings
+        assert len(data) == 10
 
     @pytest.mark.asyncio
     async def test_watchlist(self, client):
@@ -96,7 +95,7 @@ class TestErrorBudgetsAPI:
     async def test_list_error_budgets(self, client):
         r = await client.get("/api/v1/error-budgets")
         assert r.status_code == 200
-        assert len(r.json()) == 4  # demo data has 4
+        assert len(r.json()) == 4
 
 
 class TestCostsAPI:
