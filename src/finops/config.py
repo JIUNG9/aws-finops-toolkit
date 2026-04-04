@@ -83,7 +83,10 @@ DEFAULT_PREFLIGHT: dict[str, Any] = {
         "tag_key": "Priority",
         "freeze_tag_key": "DeployFreeze",
         "levels": {
-            "P0": {"label": "Critical path", "prod_changes": "maintenance_window", "requires_approval": True, "approval_from": "team lead + SRE"},
+            "P0": {
+                "label": "Critical path", "prod_changes": "maintenance_window",
+                "requires_approval": True, "approval_from": "team lead + SRE",
+            },
             "P1": {"label": "Important", "prod_changes": "off_peak", "requires_approval": True, "approval_from": "SRE"},
             "P2": {"label": "Standard", "prod_changes": "business_hours", "requires_approval": False},
             "P3": {"label": "Non-critical", "prod_changes": "anytime", "requires_approval": False},

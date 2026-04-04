@@ -6,7 +6,6 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from finops.db.database import Database
 
@@ -41,7 +40,10 @@ async def check_budget_alerts(db: Database) -> list[dict]:
                 webhook_url = config.get("webhook_url", "")
                 if webhook_url:
                     message = {
-                        "text": f"Budget Alert: {budget['name']} is at {usage_pct:.0f}% (${budget['actual_amount']:.0f}/${budget['budget_amount']:.0f})"
+                        "text": (
+                            f"Budget Alert: {budget['name']} is at {usage_pct:.0f}%"
+                            f" (${budget['actual_amount']:.0f}/${budget['budget_amount']:.0f})"
+                        )
                     }
                     triggered.append({"alert_id": alert["id"], "budget": budget["name"], "usage_pct": usage_pct})
                     await _send_slack(webhook_url, message)
@@ -73,9 +75,16 @@ async def check_error_budget_alerts(db: Database) -> list[dict]:
                 webhook_url = config.get("webhook_url", "")
                 if webhook_url:
                     message = {
-                        "text": f"Error Budget Alert: {eb.get('service_name', 'Unknown')} at {remaining_pct:.0f}% remaining ({eb['status']})"
+                        "text": (
+                            f"Error Budget Alert: {eb.get('service_name', 'Unknown')}"
+                            f" at {remaining_pct:.0f}% remaining ({eb['status']})"
+                        )
                     }
-                    triggered.append({"alert_id": alert["id"], "service": eb.get("service_name"), "remaining_pct": remaining_pct})
+                    triggered.append({
+                        "alert_id": alert["id"],
+                        "service": eb.get("service_name"),
+                        "remaining_pct": remaining_pct,
+                    })
                     await _send_slack(webhook_url, message)
 
     return triggered

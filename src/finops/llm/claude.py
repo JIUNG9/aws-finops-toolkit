@@ -44,7 +44,7 @@ class ClaudeProvider(LLMProvider):
         try:
             import anthropic
             client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            response = await client.messages.create(
+            await client.messages.create(
                 model=self.model, max_tokens=10,
                 messages=[{"role": "user", "content": "ping"}],
             )

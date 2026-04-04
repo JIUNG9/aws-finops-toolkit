@@ -22,7 +22,6 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -173,7 +172,8 @@ class UnusedResourcesCheck(BaseCheck):
         charged at $0.05/GB/month and can add up significantly.
         """
         results: list[CheckResult] = []
-        age_threshold = self.config.thresholds.get("snapshot_age_days", 90)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("snapshot_age_days", 90)
 
         # TODO: Uncomment and implement with real boto3 calls
         # ec2_client = session.client("ec2", region_name=region)
@@ -229,7 +229,8 @@ class UnusedResourcesCheck(BaseCheck):
         any associated target groups and rules.
         """
         results: list[CheckResult] = []
-        idle_days = self.config.thresholds.get("idle_lb_days", 7)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("idle_lb_days", 7)
 
         # TODO: Uncomment and implement with real boto3 calls
         # elbv2_client = session.client("elbv2", region_name=region)
@@ -304,7 +305,8 @@ class UnusedResourcesCheck(BaseCheck):
         These costs can be significant for instances with large root volumes.
         """
         results: list[CheckResult] = []
-        stopped_days_threshold = self.config.thresholds.get("stopped_instance_days", 7)
+        # Threshold used by TODO implementation below
+        self.config.thresholds.get("stopped_instance_days", 7)
 
         # TODO: Uncomment and implement with real boto3 calls
         # ec2_client = session.client("ec2", region_name=region)
