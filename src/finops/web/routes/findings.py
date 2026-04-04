@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from finops.db.database import Database
@@ -13,10 +15,10 @@ router = APIRouter(tags=["findings"])
 
 @router.get("/findings", response_model=list[FindingOut])
 async def list_findings(
-    severity: str = None,
-    status: str = None,
-    check_name: str = None,
-    account_id: str = None,
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    check_name: Optional[str] = None,
+    account_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
     db: Database = Depends(get_db),
@@ -60,8 +62,8 @@ async def update_finding(finding_id: str, body: FindingUpdate, db: Database = De
     existing = await db.fetchone("SELECT * FROM findings WHERE id = ?", (finding_id,))
     if not existing:
         raise HTTPException(status_code=404, detail="Finding not found")
-    updates = []
-    params = []
+    updates: list[str] = []
+    params: list[object] = []
     if body.status is not None:
         updates.append("status = ?")
         params.append(body.status)
