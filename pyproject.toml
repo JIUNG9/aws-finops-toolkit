@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "June Gu", email = "junegu@example.com"},
+    {name = "June Gu"},
 ]
 keywords = ["aws", "finops", "cost-optimization", "cloud", "devops", "sre"]
 classifiers = [
@@ -62,9 +62,9 @@ dev = [
 finops = "finops.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/junegu/aws-finops-toolkit"
-Repository = "https://github.com/junegu/aws-finops-toolkit"
-Issues = "https://github.com/junegu/aws-finops-toolkit/issues"
+Homepage = "https://github.com/JIUNG9/aws-finops-toolkit"
+Repository = "https://github.com/JIUNG9/aws-finops-toolkit"
+Issues = "https://github.com/JIUNG9/aws-finops-toolkit/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

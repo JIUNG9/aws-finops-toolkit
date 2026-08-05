@@ -2,6 +2,11 @@
 
 **SRE + FinOps Platform — cost optimization gated on error budgets, traffic analysis, and dependency safety.**
 
+[![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![tests](https://img.shields.io/badge/tests-70-1a8917)](tests/)
+
 CLI + web dashboard that finds AWS waste with an SRE mindset: it checks your SLOs, error budgets, and service dependencies *before* recommending any cost cut. Built from real-world FinOps work that found $67K/year in savings across 4 AWS accounts — without a single production incident.
 
 ---
@@ -128,7 +133,7 @@ FastAPI Application
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Python 3.9+, FastAPI, uvicorn |
+| Backend | Python 3.10+, FastAPI, uvicorn |
 | Frontend | Jinja2, HTMX, Chart.js, D3.js |
 | Database | SQLite (aiosqlite) — zero config |
 | Cloud | boto3 (AWS) |
@@ -182,7 +187,7 @@ POST /api/v1/incidents                 Record incident + user impact
 ## Development
 
 ```bash
-git clone https://github.com/junegu/aws-finops-toolkit.git
+git clone https://github.com/JIUNG9/aws-finops-toolkit.git
 cd aws-finops-toolkit
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,web]"
@@ -193,11 +198,11 @@ pytest
 
 This tool is the companion code for the **"FinOps for SREs"** article series:
 
-- [Part 1: How I Found $12K/Year in AWS Waste](https://medium.com/@junegu)
+- [Part 1: How I Found $12K/Year in AWS Waste](https://medium.com/@June-Gu)
 - Part 0: Pre-Flight: 9 Checks Before Cutting Costs
 - Part 2: Downsizing Without Downtime
 
-Read the full series on [Medium](https://medium.com/@junegu).
+Read the full series on [Medium](https://medium.com/@June-Gu).
 
 ## License
 
@@ -210,5 +215,5 @@ MIT
 Building reliable infrastructure at scale. Relocating to Canada.
 
 - [LinkedIn](https://linkedin.com/in/junegu)
-- [Medium](https://medium.com/@junegu)
-- [GitHub](https://github.com/junegu)
+- [Medium](https://medium.com/@June-Gu)
+- [GitHub](https://github.com/JIUNG9)
