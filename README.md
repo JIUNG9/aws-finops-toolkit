@@ -7,7 +7,26 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![tests](https://img.shields.io/badge/tests-70-1a8917)](tests/)
 
-CLI + web dashboard that finds AWS waste with an SRE mindset: it checks your SLOs, error budgets, and service dependencies *before* recommending any cost cut. Built from real-world FinOps work that found $67K/year in savings across 4 AWS accounts — without a single production incident.
+CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
+budgets and service dependencies get checked *before* anything is recommended for
+cutting. The design comes out of real FinOps work that identified ~$67K/year across 4
+AWS accounts without a production incident.
+
+> ### ⚠️ Status: the safety layer is built, the scanners are not
+>
+> **The 10 cost checks do not query AWS yet.** Each one is a module with its pricing
+> tables, thresholds and helper logic implemented and tested — and its boto3 calls
+> written out but commented behind `# TODO: Uncomment and implement`. `finops scan`
+> runs end to end and returns **zero findings**.
+>
+> What *is* working: the FastAPI + HTMX dashboard (62 routes, 14 templates), the
+> error-budget safety gate, the pluggable LLM backend, the report writers (CSV/XLSX/
+> HTML), and `--demo` mode against fixture data. 70 tests pass, covering the framework,
+> the pricing helpers and the API surface — **not** live AWS scanning.
+>
+> Use `finops dashboard --demo` to see the interface. Don't point it at a real account
+> expecting findings. Wiring the checks up is the next piece of work, and it's tracked
+> in the roadmap below.
 
 ---
 
@@ -34,7 +53,7 @@ pip install aws-finops-toolkit[web]
 # Launch dashboard with demo data (no AWS creds needed)
 finops dashboard --demo
 
-# Or scan real AWS accounts
+# Scanning a real account runs, but returns no findings yet — see Status above
 finops scan --profile production
 ```
 
@@ -75,8 +94,13 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 10 Cost Checks
-| Check | What It Finds |
+### 10 Cost Checks — scaffolded, not yet querying AWS
+
+Each module below has its thresholds, pricing lookups and helper logic implemented and
+under test. The boto3 calls are written but commented out, so every check currently
+returns an empty result. The column says what each one is *designed* to find.
+
+| Check | Designed to find |
 |-------|--------------|
 | `ec2_rightsizing` | Over-provisioned instances (avg CPU < 20% over 14 days) |
 | `nat_gateway` | NAT Gateways in dev/staging with 0 bytes processed |
@@ -89,10 +113,10 @@ finops dashboard --demo                       # Demo mode (no AWS creds)
 | `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
 | `s3_lifecycle` | S3 buckets without lifecycle policies |
 
-### Multi-Cloud Ready
-- **AWS** — full implementation (10 checks, Cost Explorer, CloudWatch)
-- **Azure** — provider abstraction ready (Phase 2)
-- **GCP** — provider abstraction ready (Phase 2)
+### Multi-Cloud
+- **AWS** — 10 check modules scaffolded; boto3 calls not yet wired (see Status)
+- **Azure** — provider abstraction only, no implementation
+- **GCP** — provider abstraction only, no implementation
 
 ### Pluggable AI
 Bring your own LLM API key:
@@ -122,7 +146,7 @@ FastAPI Application
     │   └── AI Recommendations  — pluggable LLM (Claude/OpenAI)
     │
     ├── Provider Layer (pluggable)
-    │   ├── AWS (boto3)
+    │   ├── AWS (boto3 — calls written, commented out)
     │   ├── Azure (stub)
     │   └── GCP (stub)
     │
@@ -139,7 +163,7 @@ FastAPI Application
 | Cloud | boto3 (AWS) |
 | AI | Anthropic Claude / OpenAI (pluggable) |
 | CLI | Click + Rich |
-| Testing | pytest + moto |
+| Testing | pytest (moto is a declared dependency but the current tests use plain fixtures) |
 
 ## Configuration
 
@@ -183,6 +207,22 @@ POST /api/v1/ai/analyze                Run AI analysis
 GET  /api/v1/services/dependency-graph D3.js graph data
 POST /api/v1/incidents                 Record incident + user impact
 ```
+
+## Roadmap
+
+In order of what unblocks the most:
+
+1. **Wire up the checks.** Each module's boto3 calls already exist as commented code
+   alongside working threshold and pricing logic — the work is uncommenting them,
+   handling pagination and throttling, and adding a `moto`-backed test per check that
+   asserts on actual findings rather than `isinstance(results, list)`. Start with
+   `nat_gateway` and `unused_resources`: they read a single API and need no CloudWatch
+   history, so they prove the pattern cheapest.
+2. **Pricing from the API.** Several modules carry a hardcoded price table with a
+   `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
+   instance family isn't in the table.
+3. **`preflight` against live resources.** Same shape as the checks — no AWS calls yet.
+4. **Then** the Azure and GCP providers, which are abstraction-only today.
 
 ## Development
 
