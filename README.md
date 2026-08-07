@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-70-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-77-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -14,7 +14,8 @@ AWS accounts without a production incident.
 
 > ### ⚠️ Status: the safety layer is built, the scanners are not
 >
-> **The 10 cost checks do not query AWS yet.** Each one is a module with its pricing
+> **1 of 10 cost checks queries AWS. The other 9 do not yet.** `nat_gateway` is live as
+> of 2026-08-07, with 7 moto-backed tests asserting on real findings. Each one is a module with its pricing
 > tables, thresholds and helper logic implemented and tested — and its boto3 calls
 > written out but commented behind `# TODO: Uncomment and implement`. `finops scan`
 > runs end to end and returns **zero findings**.
@@ -94,16 +95,17 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 10 Cost Checks — scaffolded, not yet querying AWS
+### 10 Cost Checks — 1 live, 9 scaffolded
 
-Each module below has its thresholds, pricing lookups and helper logic implemented and
-under test. The boto3 calls are written but commented out, so every check currently
-returns an empty result. The column says what each one is *designed* to find.
+`nat_gateway` is wired up and tested against moto. The other nine have their thresholds,
+pricing lookups and helper logic implemented and under test, with the boto3 calls written
+but commented out — those still return an empty result. The column says what each is
+designed to find; ✅ marks the ones that actually do it.
 
 | Check | Designed to find |
 |-------|--------------|
 | `ec2_rightsizing` | Over-provisioned instances (avg CPU < 20% over 14 days) |
-| `nat_gateway` | NAT Gateways in dev/staging with 0 bytes processed |
+| `nat_gateway` | ✅ **live** — NAT Gateways in dev/staging, and unused ones with 0 bytes processed |
 | `spot_candidates` | Non-prod workloads eligible for Spot instances |
 | `unused_resources` | Unattached EBS, unused EIPs, old snapshots, idle ALBs |
 | `reserved_instances` | On-demand instances that should be RIs |
@@ -114,7 +116,7 @@ returns an empty result. The column says what each one is *designed* to find.
 | `s3_lifecycle` | S3 buckets without lifecycle policies |
 
 ### Multi-Cloud
-- **AWS** — 10 check modules scaffolded; boto3 calls not yet wired (see Status)
+- **AWS** — 1 of 10 checks wired (`nat_gateway`); the rest scaffolded (see Status)
 - **Azure** — provider abstraction only, no implementation
 - **GCP** — provider abstraction only, no implementation
 
@@ -212,12 +214,12 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the checks.** Each module's boto3 calls already exist as commented code
-   alongside working threshold and pricing logic — the work is uncommenting them,
-   handling pagination and throttling, and adding a `moto`-backed test per check that
-   asserts on actual findings rather than `isinstance(results, list)`. Start with
-   `nat_gateway` and `unused_resources`: they read a single API and need no CloudWatch
-   history, so they prove the pattern cheapest.
+1. **Wire up the remaining 9 checks.** `nat_gateway` is done and sets the pattern:
+   uncomment the boto3 calls, keep the paginator, and add a `moto`-backed test per check
+   that asserts on actual findings rather than `isinstance(results, list)`.
+   `unused_resources` is next — single API, no CloudWatch history.
+   CloudWatch is the one thing moto doesn't serve usefully here, so the tests stub that
+   client and leave everything else real.
 2. **Pricing from the API.** Several modules carry a hardcoded price table with a
    `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
    instance family isn't in the table.
