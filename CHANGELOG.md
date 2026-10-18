@@ -6,6 +6,12 @@ Notable changes to this project. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `unused_resources` now finds unassociated Elastic IPs against AWS (`DescribeAddresses`,
+  no `AssociationId`). Flat $3.60/month each, severity `low`. Snapshots, idle load
+  balancers and stopped instances in that module are still scaffolded.
+
 ### Fixed
 
 - Every `github.com/junegu` link pointed at a different person's GitHub account. That
