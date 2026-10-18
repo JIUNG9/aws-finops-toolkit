@@ -138,33 +138,33 @@ class UnusedResourcesCheck(BaseCheck):
         """
         results: list[CheckResult] = []
 
-        # TODO: Uncomment and implement with real boto3 calls
-        # ec2_client = session.client("ec2", region_name=region)
-        #
-        # response = ec2_client.describe_addresses()
-        # for eip in response["Addresses"]:
-        #     allocation_id = eip.get("AllocationId", "")
-        #     public_ip = eip.get("PublicIp", "")
-        #     association_id = eip.get("AssociationId")
-        #     tags = eip.get("Tags", [])
-        #     name = self.get_resource_name(tags)
-        #
-        #     # Flag unassociated EIPs (no AssociationId means not attached)
-        #     if not association_id:
-        #         results.append(CheckResult(
-        #             check_name=self.name,
-        #             resource_type="Elastic IP",
-        #             resource_id=allocation_id or public_ip,
-        #             resource_name=name or public_ip,
-        #             current_monthly_cost=EIP_MONTHLY_COST,
-        #             recommended_action="Release — not associated with any resource",
-        #             estimated_monthly_savings=EIP_MONTHLY_COST,
-        #             severity="low",
-        #             details={
-        #                 "public_ip": public_ip,
-        #                 "sub_check": "unused_eip",
-        #             },
-        #         ))
+        ec2_client = session.client("ec2", region_name=region)
+
+        # DescribeAddresses has no paginator and no server-side "unassociated" filter.
+        # An EIP with no AssociationId isn't attached to an instance or an ENI.
+        response = ec2_client.describe_addresses()
+        for eip in response["Addresses"]:
+            if eip.get("AssociationId"):
+                continue
+
+            allocation_id = eip.get("AllocationId", "")
+            public_ip = eip.get("PublicIp", "")
+            name = self.get_resource_name(eip.get("Tags", []))
+
+            results.append(CheckResult(
+                check_name=self.name,
+                resource_type="Elastic IP",
+                resource_id=allocation_id or public_ip,
+                resource_name=name if name != "(unnamed)" else public_ip,
+                current_monthly_cost=EIP_MONTHLY_COST,
+                recommended_action="Release — not associated with any resource",
+                estimated_monthly_savings=EIP_MONTHLY_COST,
+                severity="low",
+                details={
+                    "public_ip": public_ip,
+                    "sub_check": "unused_eip",
+                },
+            ))
 
         return results
 
