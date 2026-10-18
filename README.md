@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-86-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-92-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -14,20 +14,22 @@ AWS accounts without a production incident.
 
 > ### ⚠️ Status: the safety layer is built, the scanners are not
 >
-> **2 of 10 cost checks query AWS. The other 8 do not yet.** `nat_gateway` (2026-08-07)
-> and `elasticache_scheduling` are live, with moto-backed tests asserting on real findings. Each one is a module with its pricing
-> tables, thresholds and helper logic implemented and tested — and its boto3 calls
-> written out but commented behind `# TODO: Uncomment and implement`. `finops scan`
-> runs end to end and returns **zero findings**.
+> **3 of 10 cost checks query AWS. The other 7 do not yet.** `nat_gateway` (2026-08-07),
+> `elasticache_scheduling` and `unused_resources` (both 2026-10-18) are live, with moto-backed
+> tests asserting on real findings. `unused_resources` covers unattached EBS volumes only so far;
+> its EIP, snapshot, idle load balancer and stopped instance parts are still scaffolded. Each
+> scaffolded module has its pricing tables, thresholds and helper logic implemented and tested,
+> and its boto3 calls written out but commented behind `# TODO: Uncomment and implement`.
+> `finops scan` runs end to end and only returns findings from those three checks.
 >
 > What *is* working: the FastAPI + HTMX dashboard (62 routes, 14 templates), the
 > error-budget safety gate, the pluggable LLM backend, the report writers (CSV/XLSX/
-> HTML), and `--demo` mode against fixture data. 70 tests pass, covering the framework,
-> the pricing helpers and the API surface — **not** live AWS scanning.
+> HTML), and `--demo` mode against fixture data. 84 tests pass, covering the framework,
+> the pricing helpers, the API surface, and moto-backed tests for the two live checks.
 >
-> Use `finops dashboard --demo` to see the interface. Don't point it at a real account
-> expecting findings. Wiring the checks up is the next piece of work, and it's tracked
-> in the roadmap below.
+> Use `finops dashboard --demo` to see the interface. Against a real account, only NAT
+> Gateways and unattached EBS volumes will show up; the other eight checks still return
+> nothing. Wiring them up is the next piece of work, and it's tracked in the roadmap below.
 
 ---
 
@@ -97,7 +99,8 @@ finops dashboard --demo                       # Demo mode (no AWS creds)
 
 ### 10 Cost Checks — 2 live, 8 scaffolded
 
-`nat_gateway` and `elasticache_scheduling` are wired up and tested against moto. The other eight have their thresholds,
+`nat_gateway`, `elasticache_scheduling` and the unattached-EBS part of `unused_resources` are
+wired up and tested against moto. The rest have their thresholds,
 pricing lookups and helper logic implemented and under test, with the boto3 calls written
 but commented out — those still return an empty result. The column says what each is
 designed to find; ✅ marks the ones that actually do it.
@@ -107,7 +110,7 @@ designed to find; ✅ marks the ones that actually do it.
 | `ec2_rightsizing` | Over-provisioned instances (avg CPU < 20% over 14 days) |
 | `nat_gateway` | ✅ **live** — NAT Gateways in dev/staging, and unused ones with 0 bytes processed |
 | `spot_candidates` | Non-prod workloads eligible for Spot instances |
-| `unused_resources` | Unattached EBS, unused EIPs, old snapshots, idle ALBs |
+| `unused_resources` | ✅ **live (EBS only)** — unattached EBS volumes. Unused EIPs, old snapshots, idle ALBs and stopped instances still scaffolded |
 | `reserved_instances` | On-demand instances that should be RIs |
 | `elasticache_scheduling` | ✅ **live** — non-prod clusters and replication groups running 24/7 |
 | `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
@@ -116,7 +119,7 @@ designed to find; ✅ marks the ones that actually do it.
 | `s3_lifecycle` | S3 buckets without lifecycle policies |
 
 ### Multi-Cloud
-- **AWS** — 2 of 10 checks wired (`nat_gateway`, `elasticache_scheduling`); the rest scaffolded (see Status)
+- **AWS** — 3 of 10 checks wired (`nat_gateway`, `elasticache_scheduling`, `unused_resources` EBS only); the rest scaffolded (see Status)
 - **Azure** — provider abstraction only, no implementation
 - **GCP** — provider abstraction only, no implementation
 
@@ -214,12 +217,14 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the remaining 8 checks.** `nat_gateway` is done and sets the pattern:
-   uncomment the boto3 calls, keep the paginator, and add a `moto`-backed test per check
-   that asserts on actual findings rather than `isinstance(results, list)`.
-   `unused_resources` is next — single API, no CloudWatch history.
+1. **Wire up the remaining 7 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
+   and the unattached-EBS part of `unused_resources` followed it: uncomment the boto3 calls, keep
+   the paginator, and add a `moto`-backed test per check that asserts on actual findings
+   rather than `isinstance(results, list)`. Next up is the rest of `unused_resources`
+   (EIPs, snapshots, idle LBs, stopped instances).
    CloudWatch is the one thing moto doesn't serve usefully here, so the tests stub that
-   client and leave everything else real.
+   client and leave everything else real. Moto also doesn't paginate DescribeVolumes, so
+   the EBS pagination test uses botocore's Stubber with a two-page NextToken response.
 2. **Pricing from the API.** Several modules carry a hardcoded price table with a
    `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
    instance family isn't in the table.
