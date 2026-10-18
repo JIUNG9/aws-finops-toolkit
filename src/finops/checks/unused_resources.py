@@ -22,6 +22,7 @@ AWS APIs used:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -77,52 +78,54 @@ class UnusedResourcesCheck(BaseCheck):
         """
         results: list[CheckResult] = []
 
-        # TODO: Uncomment and implement with real boto3 calls
-        # ec2_client = session.client("ec2", region_name=region)
-        #
-        # paginator = ec2_client.get_paginator("describe_volumes")
-        # for page in paginator.paginate(
-        #     Filters=[{"Name": "status", "Values": ["available"]}]
-        # ):
-        #     for volume in page["Volumes"]:
-        #         vol_id = volume["VolumeId"]
-        #         size_gb = volume["Size"]
-        #         vol_type = volume["VolumeType"]
-        #         tags = volume.get("Tags", [])
-        #         name = self.get_resource_name(tags)
-        #         create_time = volume["CreateTime"]
-        #
-        #         # Calculate monthly cost based on volume type
-        #         if vol_type == "gp3":
-        #             monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH
-        #         elif vol_type == "gp2":
-        #             monthly_cost = size_gb * EBS_GP2_PER_GB_MONTH
-        #         elif vol_type == "io1" or vol_type == "io2":
-        #             monthly_cost = size_gb * EBS_IO1_PER_GB_MONTH
-        #         else:
-        #             monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH  # fallback
-        #
-        #         days_unattached = (datetime.now(timezone.utc) - create_time).days
-        #
-        #         results.append(CheckResult(
-        #             check_name=self.name,
-        #             resource_type="EBS Volume",
-        #             resource_id=vol_id,
-        #             resource_name=name,
-        #             current_monthly_cost=monthly_cost,
-        #             recommended_action=(
-        #                 f"Delete — unattached {vol_type} volume "
-        #                 f"({size_gb} GB, unattached ~{days_unattached} days)"
-        #             ),
-        #             estimated_monthly_savings=monthly_cost,
-        #             severity="medium" if monthly_cost < 50 else "high",
-        #             details={
-        #                 "volume_type": vol_type,
-        #                 "size_gb": size_gb,
-        #                 "days_unattached": days_unattached,
-        #                 "sub_check": "unattached_ebs",
-        #             },
-        #         ))
+        ec2_client = session.client("ec2", region_name=region)
+
+        # status=available is filtered server-side, so in-use volumes never come back.
+        paginator = ec2_client.get_paginator("describe_volumes")
+        for page in paginator.paginate(
+            Filters=[{"Name": "status", "Values": ["available"]}]
+        ):
+            for volume in page["Volumes"]:
+                vol_id = volume["VolumeId"]
+                size_gb = volume["Size"]
+                vol_type = volume["VolumeType"]
+                tags = volume.get("Tags", [])
+                name = self.get_resource_name(tags)
+                create_time = volume["CreateTime"]
+
+                # Calculate monthly cost based on volume type
+                if vol_type == "gp3":
+                    monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH
+                elif vol_type == "gp2":
+                    monthly_cost = size_gb * EBS_GP2_PER_GB_MONTH
+                elif vol_type == "io1" or vol_type == "io2":
+                    monthly_cost = size_gb * EBS_IO1_PER_GB_MONTH
+                else:
+                    monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH  # fallback
+
+                # CreateTime is when the volume was made, not when it was detached.
+                # DescribeVolumes has no detach timestamp, so this is age, not idle time.
+                age_days = (datetime.now(timezone.utc) - create_time).days
+
+                results.append(CheckResult(
+                    check_name=self.name,
+                    resource_type="EBS Volume",
+                    resource_id=vol_id,
+                    resource_name=name,
+                    current_monthly_cost=monthly_cost,
+                    recommended_action=(
+                        f"Delete — unattached {vol_type} volume "
+                        f"({size_gb} GB, created {age_days} days ago)"
+                    ),
+                    estimated_monthly_savings=monthly_cost,
+                    severity="medium" if monthly_cost < 50 else "high",
+                    details={
+                        "volume_type": vol_type,
+                        "size_gb": size_gb,
+                        "age_days": age_days,
+                        "sub_check": "unattached_ebs",
+                    },
+                ))
 
         return results
 
