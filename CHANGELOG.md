@@ -20,6 +20,10 @@ Notable changes to this project. Format follows
 
 ### Added
 
+- `elasticache_scheduling` now queries AWS. Replication-group nodes are reported once per
+  group, a prod-tagged member protects the whole group, and a cluster whose tags can't
+  be read is skipped instead of being treated as non-prod. The advice no longer says to
+  "stop" a cluster (ElastiCache has no stop); it says snapshot, delete, restore.
 - CI, license, Python and test-count badges. CI has been green for months with nothing
   in the README to show it.
 - `SECURITY.md`, scoped to what actually matters here: credential leakage into logs,
