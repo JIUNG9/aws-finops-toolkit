@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-77-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-86-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -14,8 +14,8 @@ AWS accounts without a production incident.
 
 > ### ⚠️ Status: the safety layer is built, the scanners are not
 >
-> **1 of 10 cost checks queries AWS. The other 9 do not yet.** `nat_gateway` is live as
-> of 2026-08-07, with 7 moto-backed tests asserting on real findings. Each one is a module with its pricing
+> **2 of 10 cost checks query AWS. The other 8 do not yet.** `nat_gateway` (2026-08-07)
+> and `elasticache_scheduling` are live, with moto-backed tests asserting on real findings. Each one is a module with its pricing
 > tables, thresholds and helper logic implemented and tested — and its boto3 calls
 > written out but commented behind `# TODO: Uncomment and implement`. `finops scan`
 > runs end to end and returns **zero findings**.
@@ -95,9 +95,9 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 10 Cost Checks — 1 live, 9 scaffolded
+### 10 Cost Checks — 2 live, 8 scaffolded
 
-`nat_gateway` is wired up and tested against moto. The other nine have their thresholds,
+`nat_gateway` and `elasticache_scheduling` are wired up and tested against moto. The other eight have their thresholds,
 pricing lookups and helper logic implemented and under test, with the boto3 calls written
 but commented out — those still return an empty result. The column says what each is
 designed to find; ✅ marks the ones that actually do it.
@@ -109,14 +109,14 @@ designed to find; ✅ marks the ones that actually do it.
 | `spot_candidates` | Non-prod workloads eligible for Spot instances |
 | `unused_resources` | Unattached EBS, unused EIPs, old snapshots, idle ALBs |
 | `reserved_instances` | On-demand instances that should be RIs |
-| `elasticache_scheduling` | Dev/staging clusters running 24/7 |
+| `elasticache_scheduling` | ✅ **live** — non-prod clusters and replication groups running 24/7 |
 | `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
 | `vpc_waste` | Abandoned VPCs, idle NAT GWs, stale WorkSpaces |
 | `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
 | `s3_lifecycle` | S3 buckets without lifecycle policies |
 
 ### Multi-Cloud
-- **AWS** — 1 of 10 checks wired (`nat_gateway`); the rest scaffolded (see Status)
+- **AWS** — 2 of 10 checks wired (`nat_gateway`, `elasticache_scheduling`); the rest scaffolded (see Status)
 - **Azure** — provider abstraction only, no implementation
 - **GCP** — provider abstraction only, no implementation
 
@@ -214,7 +214,7 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the remaining 9 checks.** `nat_gateway` is done and sets the pattern:
+1. **Wire up the remaining 8 checks.** `nat_gateway` is done and sets the pattern:
    uncomment the boto3 calls, keep the paginator, and add a `moto`-backed test per check
    that asserts on actual findings rather than `isinstance(results, list)`.
    `unused_resources` is next — single API, no CloudWatch history.

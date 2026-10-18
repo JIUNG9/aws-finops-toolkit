@@ -25,8 +25,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from finops.checks.base import BaseCheck, CheckResult
+from botocore.exceptions import ClientError
 
+from finops.checks.base import BaseCheck, CheckResult
 
 # ElastiCache node pricing (us-east-1, approximate)
 ELASTICACHE_NODE_PRICING: dict[str, float] = {
@@ -70,88 +71,91 @@ class ElastiCacheSchedulingCheck(BaseCheck):
         Returns:
             List of CheckResult for non-prod clusters that should be scheduled.
         """
-        results: list[CheckResult] = []
+        ec_client = session.client("elasticache", region_name=region)
 
-        # TODO: Uncomment and implement with real boto3 calls
-        #
-        # ec_client = session.client("elasticache", region_name=region)
-        #
-        # # Step 1: List all cache clusters
-        # paginator = ec_client.get_paginator("describe_cache_clusters")
-        #
-        # for page in paginator.paginate(ShowCacheNodeInfo=True):
-        #     for cluster in page["CacheClusters"]:
-        #         cluster_id = cluster["CacheClusterId"]
-        #         node_type = cluster["CacheNodeType"]
-        #         engine = cluster["Engine"]  # "redis" or "memcached"
-        #         num_nodes = cluster.get("NumCacheNodes", 1)
-        #         status = cluster["CacheClusterStatus"]
-        #
-        #         if status != "available":
-        #             continue
-        #
-        #         # Step 2: Get tags for environment detection
-        #         # ElastiCache ARN format:
-        #         # arn:aws:elasticache:{region}:{account}:cluster:{id}
-        #         try:
-        #             arn = cluster["ARN"]
-        #             tag_response = ec_client.list_tags_for_resource(
-        #                 ResourceName=arn
-        #             )
-        #             tags = [
-        #                 {"Key": t["Key"], "Value": t["Value"]}
-        #                 for t in tag_response.get("TagList", [])
-        #             ]
-        #         except Exception:
-        #             tags = []
-        #
-        #         # Step 3: Skip production clusters
-        #         if self.is_production(tags, cluster_id):
-        #             continue
-        #
-        #         # Step 4: Calculate monthly cost and potential savings
-        #         monthly_cost = self._estimate_monthly_cost(node_type, num_nodes)
-        #         savings = monthly_cost * OFF_HOURS_SAVINGS_RATIO
-        #
-        #         if monthly_cost == 0:
-        #             continue
-        #
-        #         # Step 5: Determine recommendation
-        #         # For Redis, we can stop/start the cluster
-        #         # For Memcached, data is lost on stop — might recommend Serverless instead
-        #         if engine == "redis":
-        #             action = (
-        #                 f"Schedule off-hours stop (8pm-8am, weekends) — "
-        #                 f"{num_nodes}x {node_type} ({engine}), ~{OFF_HOURS_SAVINGS_RATIO*100:.0f}% savings"
-        #             )
-        #         else:
-        #             action = (
-        #                 f"Consider ElastiCache Serverless or schedule teardown — "
-        #                 f"{num_nodes}x {node_type} ({engine}), non-prod"
-        #             )
-        #
-        #         # Check if this is part of a replication group
-        #         replication_group = cluster.get("ReplicationGroupId")
-        #
-        #         results.append(CheckResult(
-        #             check_name=self.name,
-        #             resource_type="ElastiCache Cluster",
-        #             resource_id=cluster_id,
-        #             resource_name=cluster_id,
-        #             current_monthly_cost=monthly_cost,
-        #             recommended_action=action,
-        #             estimated_monthly_savings=savings,
-        #             severity="medium",
-        #             details={
-        #                 "engine": engine,
-        #                 "node_type": node_type,
-        #                 "num_nodes": num_nodes,
-        #                 "replication_group": replication_group,
-        #                 "off_hours_ratio": OFF_HOURS_SAVINGS_RATIO,
-        #             },
-        #         ))
+        # Step 1: collect available clusters, grouping replication-group members.
+        # Every node of a Redis replication group is its own cache cluster, but
+        # you can only schedule the group as a whole, so it gets one finding.
+        groups: dict[str, list[dict]] = {}
+        paginator = ec_client.get_paginator("describe_cache_clusters")
+        for page in paginator.paginate(ShowCacheNodeInfo=True):
+            for cluster in page["CacheClusters"]:
+                if cluster.get("CacheClusterStatus") != "available":
+                    continue
+                key = cluster.get("ReplicationGroupId") or cluster["CacheClusterId"]
+                groups.setdefault(key, []).append(cluster)
+
+        results: list[CheckResult] = []
+        for group_id, members in groups.items():
+            node_type = members[0]["CacheNodeType"]
+            engine = members[0]["Engine"]
+            num_nodes = sum(m.get("NumCacheNodes", 1) for m in members)
+
+            # Step 2: environment. Unreadable tags are not "no tags": without
+            # them we can't tell prod from dev, so the group is skipped.
+            member_tags = self._member_tags(ec_client, members)
+            if member_tags is None:
+                continue
+            # Judge each member on its own tags: merged, the first Environment
+            # tag would hide a prod member behind a dev one.
+            if self.is_production(None, group_id) or any(
+                self.is_production(t, self.get_resource_name(t)) for t in member_tags
+            ):
+                continue
+            name = self.get_resource_name(member_tags[0])
+            label = name if name != "(unnamed)" else group_id
+
+            # Step 3: cost. Unknown node types price at 0 and are skipped
+            # rather than reported with a made-up number.
+            monthly_cost = self._estimate_monthly_cost(node_type, num_nodes)
+            if monthly_cost == 0:
+                continue
+            savings = monthly_cost * OFF_HOURS_SAVINGS_RATIO
+
+            # Step 4: ElastiCache has no stop. The saving comes from deleting
+            # the cluster off-hours, so what survives the delete matters.
+            if engine == "redis":
+                action = (
+                    f"Schedule off-hours snapshot + delete, restore in the morning "
+                    f"(8pm-8am, weekends) — {num_nodes}x {node_type} ({engine}), "
+                    f"~{OFF_HOURS_SAVINGS_RATIO * 100:.0f}% savings"
+                )
+            else:
+                action = (
+                    f"Consider ElastiCache Serverless — {num_nodes}x {node_type} "
+                    f"({engine}) has no snapshots, so a scheduled delete loses the cache"
+                )
+
+            results.append(CheckResult(
+                check_name=self.name,
+                resource_type="ElastiCache Cluster",
+                resource_id=group_id,
+                resource_name=label,
+                current_monthly_cost=monthly_cost,
+                recommended_action=action,
+                estimated_monthly_savings=savings,
+                severity="medium",
+                details={
+                    "engine": engine,
+                    "node_type": node_type,
+                    "num_nodes": num_nodes,
+                    "replication_group": members[0].get("ReplicationGroupId"),
+                    "off_hours_ratio": OFF_HOURS_SAVINGS_RATIO,
+                },
+            ))
 
         return results
+
+    def _member_tags(self, ec_client: Any, members: list[dict]) -> list[list[dict]] | None:
+        """Tags per member, or None if any member's tags can't be read."""
+        out: list[list[dict]] = []
+        for member in members:
+            try:
+                resp = ec_client.list_tags_for_resource(ResourceName=member["ARN"])
+            except (ClientError, KeyError):
+                return None
+            out.append(resp.get("TagList", []))
+        return out
 
     def _estimate_monthly_cost(self, node_type: str, num_nodes: int) -> float:
         """Estimate monthly cost for an ElastiCache cluster.
