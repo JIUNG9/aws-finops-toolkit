@@ -1,8 +1,8 @@
 """Real behaviour tests for the unattached-EBS part of the unused_resources check.
 
-Only the EBS sub-check is wired. EIPs, snapshots, idle load balancers and stopped
-instances are still commented out and return nothing, so every finding here comes
-from DescribeVolumes.
+These tests only look at EBS findings (filtered on sub_check). EIPs are covered in
+test_unused_eip_live.py. Snapshots, idle load balancers and stopped instances are
+still commented out and return nothing.
 
 Most tests use moto for real volumes, attachments and tags. Two things moto can't do
 for this check:
@@ -190,7 +190,9 @@ def test_paginates_past_first_page_and_reports_age(check: UnusedResourcesCheck) 
     )
 
     with stubber:
-        findings = _ebs(check.run(_SessionWithClient(ec2), REGION))
+        # Straight to the EBS sub-check: run() would also call DescribeAddresses on this
+        # stubbed client, which has nothing queued for it.
+        findings = _ebs(check._check_unattached_ebs(_SessionWithClient(ec2), REGION))
         stubber.assert_no_pending_responses()
 
     assert [r.resource_id for r in findings] == [
