@@ -24,6 +24,15 @@ Notable changes to this project. Format follows
   group, a prod-tagged member protects the whole group, and a cluster whose tags can't
   be read is skipped instead of being treated as non-prod. The advice no longer says to
   "stop" a cluster (ElastiCache has no stop); it says snapshot, delete, restore.
+- `unused_resources` now finds unattached EBS volumes in real AWS. It pages through
+  `DescribeVolumes` with a server-side `status=available` filter, prices each volume
+  from the existing gp3/gp2/io1 table (io2 uses the io1 rate), and flags it for
+  deletion — `high` severity from $50/month up, `medium` below. The other four
+  sub-checks in that module (EIPs, old snapshots, idle load balancers, stopped
+  instances) are still commented out.
+- `tests/test_unused_resources_live.py`: 7 tests that assert on findings. Moto for real
+  volumes, attachments and tags; botocore `Stubber` for a two-page `NextToken` walk and
+  an aged `CreateTime`, both of which moto can't produce. Suite 77 -> 84.
 - CI, license, Python and test-count badges. CI has been green for months with nothing
   in the README to show it.
 - `SECURITY.md`, scoped to what actually matters here: credential leakage into logs,
@@ -33,6 +42,9 @@ Notable changes to this project. Format follows
 
 ### Changed
 
+- The EBS finding reports `age_days` (from `CreateTime`), not the `days_unattached` the
+  commented-out draft used, and the action text says "created N days ago". AWS doesn't
+  expose a detach time, so the draft's wording claimed something the data can't back.
 - Test count stated as **70**, which is what `pytest` collects. The README and several
   other documents said 44.
 
