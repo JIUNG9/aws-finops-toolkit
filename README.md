@@ -258,7 +258,7 @@ MIT
 
 ## Author
 
-**June Gu** — Site Reliability Engineer at NAVER Corporation (Placen). Ex-Coupang.
+**June Gu**, Site Reliability Engineer · https://github.com/JIUNG9
 
 Building reliable infrastructure at scale. Relocating to Canada.
 
