@@ -29,6 +29,8 @@ from finops.checks.unused_resources import (
     EBS_GP2_PER_GB_MONTH,
     EBS_GP3_PER_GB_MONTH,
     EBS_IO1_PER_GB_MONTH,
+    EBS_SC1_PER_GB_MONTH,
+    EBS_ST1_PER_GB_MONTH,
     UnusedResourcesCheck,
 )
 from finops.config import FinOpsConfig
@@ -51,7 +53,10 @@ class _SessionWithClient:
 
 @pytest.fixture
 def check() -> UnusedResourcesCheck:
-    return UnusedResourcesCheck(FinOpsConfig())
+    # Grace period off: moto stamps every volume as created just now.
+    config = FinOpsConfig()
+    config.thresholds["unattached_volume_grace_days"] = 0
+    return UnusedResourcesCheck(config)
 
 
 def _ebs(results: list[Any]) -> list[Any]:
@@ -202,3 +207,51 @@ def test_paginates_past_first_page_and_reports_age(check: UnusedResourcesCheck) 
     ]
     assert all(r.details["age_days"] == 45 for r in findings)
     assert "created 45 days ago" in findings[0].recommended_action
+
+
+@mock_aws
+def test_hdd_volumes_use_their_own_rates(check: UnusedResourcesCheck) -> None:
+    """st1 and sc1 are far cheaper than the gp3 fallback they used to get."""
+    session = boto3.Session(region_name=REGION)
+    ec2 = session.client("ec2", region_name=REGION)
+    st1 = _volume(ec2, 500, "st1")
+    sc1 = _volume(ec2, 500, "sc1")
+
+    by_id = {r.resource_id: r for r in _ebs(check.run(session, REGION))}
+
+    assert by_id[st1].current_monthly_cost == pytest.approx(500 * EBS_ST1_PER_GB_MONTH)
+    assert by_id[sc1].current_monthly_cost == pytest.approx(500 * EBS_SC1_PER_GB_MONTH)
+
+
+def _stubbed_findings(created_days_ago: int, thresholds: dict[str, Any] | None = None) -> list[Any]:
+    session = boto3.Session(
+        aws_access_key_id="testing", aws_secret_access_key="testing", region_name=REGION
+    )
+    ec2 = session.client("ec2", region_name=REGION)
+    config = FinOpsConfig()
+    config.thresholds.update(thresholds or {})
+    volume = {
+        "VolumeId": "vol-0000000000000001",
+        "Size": 100,
+        "VolumeType": "gp3",
+        "State": "available",
+        "CreateTime": datetime.now(timezone.utc) - timedelta(days=created_days_ago),
+        "AvailabilityZone": AZ,
+    }
+    stubber = Stubber(ec2)
+    stubber.add_response("describe_volumes", {"Volumes": [volume]})
+    with stubber:
+        return _ebs(UnusedResourcesCheck(config)._check_unattached_ebs(_SessionWithClient(ec2), REGION))
+
+
+def test_default_grace_skips_volumes_under_seven_days_old() -> None:
+    assert _stubbed_findings(created_days_ago=3) == []
+
+
+def test_default_grace_reports_volumes_seven_days_or_older() -> None:
+    assert [r.resource_id for r in _stubbed_findings(created_days_ago=7)] == ["vol-0000000000000001"]
+
+
+def test_grace_days_is_configurable() -> None:
+    assert _stubbed_findings(created_days_ago=20, thresholds={"unattached_volume_grace_days": 30}) == []
+    assert len(_stubbed_findings(created_days_ago=20, thresholds={"unattached_volume_grace_days": 14})) == 1

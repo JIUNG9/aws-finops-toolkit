@@ -7,6 +7,7 @@ thresholds:
   ec2_cpu_avg_percent: 20       # Flag EC2 instances with avg CPU below this %
   ec2_lookback_days: 14         # CloudWatch metrics lookback window (days)
   snapshot_age_days: 90         # Flag EBS snapshots older than this (days)
+  unattached_volume_grace_days: 7  # Skip unattached EBS volumes younger than this (days)
   idle_lb_days: 7               # Flag load balancers with 0 connections for this many days
   stopped_instance_days: 7      # Flag stopped EC2 instances older than this (days)
   nat_idle_days: 14             # Flag NAT Gateways with 0 bytes for this many days
