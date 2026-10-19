@@ -203,7 +203,7 @@ class PriorityCheck:
     """Check 8: Organizational readiness — freeze, priority, severity."""
     service_priority: str = ""          # "P0", "P1", "P2", "P3"
     deploy_freeze_active: bool = False
-    pending_release: str = ""           # e.g., "ConnectOrder v2.3 — March 18"
+    pending_release: str = ""           # e.g., "checkout-api v2.3 — March 18"
     pending_release_date: str = ""
     active_incidents: int = 0
     error_trend: str = "stable"         # "improving", "stable", "degrading"
