@@ -258,7 +258,7 @@ MIT
 
 ## Author
 
-**June Gu** — Site Reliability Engineer at my employer. ex-e-commerce.
+**June Gu**, Site Reliability Engineer · https://github.com/JIUNG9
 
 
 - [Medium](https://medium.com/@June-Gu)
