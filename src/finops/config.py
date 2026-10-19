@@ -26,6 +26,7 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
     "ec2_cpu_avg_percent": 20,
     "ec2_lookback_days": 14,
     "snapshot_age_days": 90,
+    "unattached_volume_grace_days": 7,
     "idle_lb_days": 7,
     "stopped_instance_days": 7,
     "nat_idle_days": 14,

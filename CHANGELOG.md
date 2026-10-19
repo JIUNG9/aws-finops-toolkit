@@ -6,6 +6,14 @@ Notable changes to this project. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `unused_resources` skips unattached EBS volumes younger than `unattached_volume_grace_days`
+  (default 7), so a volume created or detached for a deploy isn't reported. DescribeVolumes has
+  no detach time, so this is volume age, not time spent detached. Set it to 0 to report everything.
+- `st1`, `sc1` and `standard` volumes are priced at their own per-GB rates ($0.045, $0.015,
+  $0.05) instead of the gp3 fallback, which overstated sc1 savings by more than 5x.
+
 ### Added
 
 - `unused_resources` now finds unassociated Elastic IPs against AWS (`DescribeAddresses`,
