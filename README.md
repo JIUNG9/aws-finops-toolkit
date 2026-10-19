@@ -184,6 +184,7 @@ accounts:
 thresholds:
   ec2_cpu_avg_percent: 20
   snapshot_age_days: 90
+  unattached_volume_grace_days: 7   # skip unattached EBS volumes younger than this
 
 web:
   host: 127.0.0.1

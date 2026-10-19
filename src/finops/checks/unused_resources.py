@@ -32,6 +32,24 @@ from finops.checks.base import BaseCheck, CheckResult
 EBS_GP3_PER_GB_MONTH = 0.08      # $/GB/month
 EBS_GP2_PER_GB_MONTH = 0.10      # $/GB/month
 EBS_IO1_PER_GB_MONTH = 0.125     # $/GB/month
+EBS_ST1_PER_GB_MONTH = 0.045     # $/GB/month (throughput optimized HDD)
+EBS_SC1_PER_GB_MONTH = 0.015     # $/GB/month (cold HDD)
+EBS_STANDARD_PER_GB_MONTH = 0.05  # $/GB/month (previous-generation magnetic)
+
+# Per-GB rate by EBS volume type. Types not listed fall back to the gp3 rate.
+EBS_PRICE_PER_GB_MONTH = {
+    "gp3": EBS_GP3_PER_GB_MONTH,
+    "gp2": EBS_GP2_PER_GB_MONTH,
+    "io1": EBS_IO1_PER_GB_MONTH,
+    "io2": EBS_IO1_PER_GB_MONTH,
+    "st1": EBS_ST1_PER_GB_MONTH,
+    "sc1": EBS_SC1_PER_GB_MONTH,
+    "standard": EBS_STANDARD_PER_GB_MONTH,
+}
+
+# Volumes younger than this are skipped, so one just created and not yet attached
+# (or detached for a deploy) isn't reported.
+DEFAULT_UNATTACHED_VOLUME_GRACE_DAYS = 7
 
 # EIP pricing (since Feb 2024, all EIPs incur charges)
 EIP_MONTHLY_COST = 3.60          # $0.005/hr * 730 hrs
@@ -74,10 +92,14 @@ class UnusedResourcesCheck(BaseCheck):
         """Find EBS volumes in 'available' state (not attached to any instance).
 
         These are typically leftover from terminated instances. They incur
-        storage charges for as long as they exist.
+        storage charges for as long as they exist. Volumes younger than the
+        `unattached_volume_grace_days` threshold (default 7) are skipped.
         """
         results: list[CheckResult] = []
 
+        grace_days = self.config.thresholds.get(
+            "unattached_volume_grace_days", DEFAULT_UNATTACHED_VOLUME_GRACE_DAYS
+        )
         ec2_client = session.client("ec2", region_name=region)
 
         # status=available is filtered server-side, so in-use volumes never come back.
@@ -93,19 +115,14 @@ class UnusedResourcesCheck(BaseCheck):
                 name = self.get_resource_name(tags)
                 create_time = volume["CreateTime"]
 
-                # Calculate monthly cost based on volume type
-                if vol_type == "gp3":
-                    monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH
-                elif vol_type == "gp2":
-                    monthly_cost = size_gb * EBS_GP2_PER_GB_MONTH
-                elif vol_type == "io1" or vol_type == "io2":
-                    monthly_cost = size_gb * EBS_IO1_PER_GB_MONTH
-                else:
-                    monthly_cost = size_gb * EBS_GP3_PER_GB_MONTH  # fallback
-
                 # CreateTime is when the volume was made, not when it was detached.
                 # DescribeVolumes has no detach timestamp, so this is age, not idle time.
                 age_days = (datetime.now(timezone.utc) - create_time).days
+                if age_days < grace_days:
+                    continue
+
+                rate = EBS_PRICE_PER_GB_MONTH.get(vol_type, EBS_GP3_PER_GB_MONTH)
+                monthly_cost = size_gb * rate
 
                 results.append(CheckResult(
                     check_name=self.name,
