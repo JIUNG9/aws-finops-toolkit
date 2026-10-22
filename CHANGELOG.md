@@ -16,6 +16,12 @@ Notable changes to this project. Format follows
 
 ### Added
 
+- `unused_resources` now finds old EBS snapshots against AWS (`DescribeSnapshots`, own account
+  only, older than `snapshot_age_days`, default 90). Snapshots behind one of the account's
+  AMIs and snapshots made by AWS Backup are skipped: the first can't be deleted until the AMI is
+  deregistered, the second has its own lifecycle. Cost is `VolumeSize` x $0.05, an upper bound
+  because snapshots are incremental; findings carry `cost_is_upper_bound`. Idle load balancers
+  and stopped instances in that module are still scaffolded.
 - `unused_resources` now finds unassociated Elastic IPs against AWS (`DescribeAddresses`,
   no `AssociationId`). Flat $3.60/month each, severity `low`. Snapshots, idle load
   balancers and stopped instances in that module are still scaffolded.

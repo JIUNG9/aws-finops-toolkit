@@ -190,57 +190,88 @@ class UnusedResourcesCheck(BaseCheck):
 
         Old snapshots accumulate over time and are easy to forget. They're
         charged at $0.05/GB/month and can add up significantly.
+
+        Skipped on purpose:
+        - Snapshots that back one of this account's AMIs. AWS refuses to delete
+          them until the AMI is deregistered, so "Delete" would be wrong advice.
+        - Snapshots created by AWS Backup, which manages their lifecycle.
+        - Snapshots still pending; they have no final size yet.
+
+        The cost is an upper bound. Snapshots are incremental, so the billed
+        size is usually below the source volume size, and DescribeSnapshots
+        does not report it.
         """
         results: list[CheckResult] = []
-        # Threshold used by TODO implementation below
-        self.config.thresholds.get("snapshot_age_days", 90)
+        age_threshold = self.config.thresholds.get("snapshot_age_days", 90)
 
-        # TODO: Uncomment and implement with real boto3 calls
-        # ec2_client = session.client("ec2", region_name=region)
-        #
-        # # Only check snapshots owned by this account
-        # paginator = ec2_client.get_paginator("describe_snapshots")
-        # for page in paginator.paginate(OwnerIds=["self"]):
-        #     for snapshot in page["Snapshots"]:
-        #         snap_id = snapshot["SnapshotId"]
-        #         size_gb = snapshot["VolumeSize"]
-        #         start_time = snapshot["StartTime"]
-        #         tags = snapshot.get("Tags", [])
-        #         name = self.get_resource_name(tags)
-        #         description = snapshot.get("Description", "")
-        #
-        #         age_days = (datetime.now(timezone.utc) - start_time).days
-        #
-        #         if age_days < age_threshold:
-        #             continue
-        #
-        #         # Skip snapshots created by AWS Backup (they have lifecycle management)
-        #         if "aws:backup" in description.lower() or self.get_tag_value(tags, "aws:backup:source-resource"):
-        #             continue
-        #
-        #         monthly_cost = size_gb * SNAPSHOT_PER_GB_MONTH
-        #
-        #         results.append(CheckResult(
-        #             check_name=self.name,
-        #             resource_type="EBS Snapshot",
-        #             resource_id=snap_id,
-        #             resource_name=name or description[:50] or snap_id,
-        #             current_monthly_cost=monthly_cost,
-        #             recommended_action=(
-        #                 f"Delete — {age_days} days old ({size_gb} GB), "
-        #                 f"exceeds {age_threshold}-day threshold"
-        #             ),
-        #             estimated_monthly_savings=monthly_cost,
-        #             severity="low" if monthly_cost < 10 else "medium",
-        #             details={
-        #                 "size_gb": size_gb,
-        #                 "age_days": age_days,
-        #                 "description": description,
-        #                 "sub_check": "old_snapshot",
-        #             },
-        #         ))
+        ec2_client = session.client("ec2", region_name=region)
+
+        ami_snapshot_ids = self._ami_snapshot_ids(ec2_client)
+
+        # OwnerIds=self leaves out the public and shared snapshots we don't pay for.
+        paginator = ec2_client.get_paginator("describe_snapshots")
+        for page in paginator.paginate(OwnerIds=["self"]):
+            for snapshot in page["Snapshots"]:
+                snap_id = snapshot["SnapshotId"]
+                if snapshot.get("State") == "pending" or snap_id in ami_snapshot_ids:
+                    continue
+
+                size_gb = snapshot["VolumeSize"]
+                tags = snapshot.get("Tags", [])
+                description = snapshot.get("Description", "")
+
+                age_days = (datetime.now(timezone.utc) - snapshot["StartTime"]).days
+                if age_days < age_threshold:
+                    continue
+
+                if self._is_aws_backup_snapshot(tags, description):
+                    continue
+
+                name = self.get_resource_name(tags)
+                monthly_cost = size_gb * SNAPSHOT_PER_GB_MONTH
+
+                results.append(CheckResult(
+                    check_name=self.name,
+                    resource_type="EBS Snapshot",
+                    resource_id=snap_id,
+                    resource_name=name if name != "(unnamed)" else (description[:50] or snap_id),
+                    current_monthly_cost=monthly_cost,
+                    recommended_action=(
+                        f"Delete — {age_days} days old ({size_gb} GB), "
+                        f"exceeds {age_threshold}-day threshold"
+                    ),
+                    estimated_monthly_savings=monthly_cost,
+                    severity="low" if monthly_cost < 10 else "medium",
+                    details={
+                        "size_gb": size_gb,
+                        "age_days": age_days,
+                        "description": description,
+                        "cost_is_upper_bound": True,
+                        "sub_check": "old_snapshot",
+                    },
+                ))
 
         return results
+
+    @staticmethod
+    def _ami_snapshot_ids(ec2_client: Any) -> set[str]:
+        """Snapshot IDs referenced by the block device mappings of our own AMIs."""
+        snapshot_ids: set[str] = set()
+        paginator = ec2_client.get_paginator("describe_images")
+        for page in paginator.paginate(Owners=["self"]):
+            for image in page["Images"]:
+                for mapping in image.get("BlockDeviceMappings", []):
+                    snap_id = mapping.get("Ebs", {}).get("SnapshotId")
+                    if snap_id:
+                        snapshot_ids.add(snap_id)
+        return snapshot_ids
+
+    def _is_aws_backup_snapshot(self, tags: list[dict[str, str]], description: str) -> bool:
+        """AWS Backup tags its snapshots with aws:backup:source-resource."""
+        return (
+            self.get_tag_value(tags, "aws:backup:source-resource") is not None
+            or "aws backup" in description.lower()
+        )
 
     def _check_idle_load_balancers(self, session: Any, region: str) -> list[CheckResult]:
         """Find ALBs/NLBs with 0 active connections over the past 7 days.

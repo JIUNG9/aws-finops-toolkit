@@ -1,8 +1,8 @@
 """Real behaviour tests for the unattached-EBS part of the unused_resources check.
 
 These tests only look at EBS findings (filtered on sub_check). EIPs are covered in
-test_unused_eip_live.py. Snapshots, idle load balancers and stopped instances are
-still commented out and return nothing.
+test_unused_eip_live.py and snapshots in test_unused_snapshots_live.py. Idle load
+balancers and stopped instances are still commented out and return nothing.
 
 Most tests use moto for real volumes, attachments and tags. Two things moto can't do
 for this check:
