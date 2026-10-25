@@ -16,6 +16,12 @@ Notable changes to this project. Format follows
 
 ### Added
 
+- `unused_resources` now finds idle load balancers against AWS (`DescribeLoadBalancers` plus
+  CloudWatch). An ALB with no `RequestCount`, or an NLB with no `NewFlowCount`, over
+  `idle_lb_days` (default 7) is reported. A missing metric series counts as idle, since
+  CloudWatch only publishes these while traffic flows. Load balancers younger than the window and
+  Gateway/Classic load balancers are skipped. Cost is the $16.43/month fixed charge, which leaves
+  out LCU charges. Stopped instances in that module are still scaffolded.
 - `unused_resources` now finds old EBS snapshots against AWS (`DescribeSnapshots`, own account
   only, older than `snapshot_age_days`, default 90). Snapshots behind one of the account's
   AMIs and snapshots made by AWS Backup are skipped: the first can't be deleted until the AMI is
