@@ -4,7 +4,7 @@ This is often the lowest-hanging fruit in FinOps. Common culprits:
   - Unattached EBS volumes (leftover from terminated instances)
   - Unused Elastic IPs ($3.60/month each since Feb 2024)
   - Old snapshots nobody remembers creating (> 90 days)
-  - Idle load balancers with 0 connections for 7+ days
+  - Idle load balancers with no traffic for 7+ days
   - Stopped instances still paying for EBS storage
 
 Each sub-check runs independently and produces separate findings.
@@ -22,7 +22,7 @@ AWS APIs used:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from finops.checks.base import BaseCheck, CheckResult
@@ -57,8 +57,14 @@ EIP_MONTHLY_COST = 3.60          # $0.005/hr * 730 hrs
 # Snapshot pricing
 SNAPSHOT_PER_GB_MONTH = 0.05     # $/GB/month
 
-# ALB pricing
-ALB_MONTHLY_FIXED = 16.43        # $0.0225/hr * 730 hrs (fixed cost only)
+# ALB and NLB pricing (same hourly rate; fixed cost only, LCU charges excluded)
+LB_MONTHLY_FIXED = 16.43         # $0.0225/hr * 730 hrs
+
+# elbv2 Type -> (finding label, CloudWatch namespace, traffic metric)
+LB_TRAFFIC_METRICS = {
+    "application": ("ALB", "AWS/ApplicationELB", "RequestCount"),
+    "network": ("NLB", "AWS/NetworkELB", "NewFlowCount"),
+}
 
 
 class UnusedResourcesCheck(BaseCheck):
@@ -274,76 +280,72 @@ class UnusedResourcesCheck(BaseCheck):
         )
 
     def _check_idle_load_balancers(self, session: Any, region: str) -> list[CheckResult]:
-        """Find ALBs/NLBs with 0 active connections over the past 7 days.
+        """Find ALBs and NLBs that served no traffic over the past 7 days.
 
-        Idle load balancers cost ~$16/month in fixed charges alone, plus
-        any associated target groups and rules.
+        An idle load balancer costs about $16/month in fixed charges alone.
+        Traffic is read from CloudWatch: `RequestCount` for ALBs, `NewFlowCount`
+        for NLBs. Both are only published while traffic flows, so a missing or
+        all-zero series means idle.
+
+        Skipped on purpose:
+        - Load balancers younger than the window, which can't show 7 idle days yet.
+        - Gateway load balancers and Classic ELBs, which use other APIs and prices.
         """
         results: list[CheckResult] = []
-        # Threshold used by TODO implementation below
-        self.config.thresholds.get("idle_lb_days", 7)
+        idle_days = self.config.thresholds.get("idle_lb_days", 7)
 
-        # TODO: Uncomment and implement with real boto3 calls
-        # elbv2_client = session.client("elbv2", region_name=region)
-        # cw_client = session.client("cloudwatch", region_name=region)
-        #
-        # paginator = elbv2_client.get_paginator("describe_load_balancers")
-        # for page in paginator.paginate():
-        #     for lb in page["LoadBalancers"]:
-        #         lb_arn = lb["LoadBalancerArn"]
-        #         lb_name = lb["LoadBalancerName"]
-        #         lb_type = lb["Type"]  # "application" or "network"
-        #
-        #         # Extract the ARN suffix for CloudWatch dimension
-        #         # Format: app/my-alb/1234567890abcdef
-        #         arn_suffix = "/".join(lb_arn.split("/")[-3:])
-        #
-        #         # Query CloudWatch for active connections
-        #         end_time = datetime.now(timezone.utc)
-        #         start_time = end_time - timedelta(days=idle_days)
-        #
-        #         metric_name = (
-        #             "ActiveConnectionCount" if lb_type == "application"
-        #             else "ActiveFlowCount"
-        #         )
-        #         namespace = "AWS/ApplicationELB" if lb_type == "application" else "AWS/NetworkELB"
-        #
-        #         stats = cw_client.get_metric_statistics(
-        #             Namespace=namespace,
-        #             MetricName=metric_name,
-        #             Dimensions=[
-        #                 {"Name": "LoadBalancer", "Value": arn_suffix},
-        #             ],
-        #             StartTime=start_time,
-        #             EndTime=end_time,
-        #             Period=86400,
-        #             Statistics=["Sum"],
-        #         )
-        #
-        #         total_connections = sum(
-        #             dp["Sum"] for dp in stats.get("Datapoints", [])
-        #         )
-        #
-        #         if total_connections == 0:
-        #             results.append(CheckResult(
-        #                 check_name=self.name,
-        #                 resource_type=f"{'ALB' if lb_type == 'application' else 'NLB'}",
-        #                 resource_id=lb_name,
-        #                 resource_name=lb_name,
-        #                 current_monthly_cost=ALB_MONTHLY_FIXED,
-        #                 recommended_action=(
-        #                     f"Delete — 0 connections over {idle_days} days"
-        #                 ),
-        #                 estimated_monthly_savings=ALB_MONTHLY_FIXED,
-        #                 severity="medium",
-        #                 details={
-        #                     "lb_type": lb_type,
-        #                     "lb_arn": lb_arn,
-        #                     "idle_days_checked": idle_days,
-        #                     "total_connections": 0,
-        #                     "sub_check": "idle_load_balancer",
-        #                 },
-        #             ))
+        elbv2_client = session.client("elbv2", region_name=region)
+        cw_client = session.client("cloudwatch", region_name=region)
+
+        now = datetime.now(timezone.utc)
+        paginator = elbv2_client.get_paginator("describe_load_balancers")
+        for page in paginator.paginate():
+            for lb in page["LoadBalancers"]:
+                lb_type = lb["Type"]
+                if lb_type not in LB_TRAFFIC_METRICS:
+                    continue
+
+                created = lb.get("CreatedTime")
+                if created is not None and (now - created).days < idle_days:
+                    continue
+
+                label, namespace, metric_name = LB_TRAFFIC_METRICS[lb_type]
+                lb_arn = lb["LoadBalancerArn"]
+                lb_name = lb["LoadBalancerName"]
+                # CloudWatch identifies the LB by the ARN tail: app/<name>/<id>.
+                arn_suffix = "/".join(lb_arn.split("/")[-3:])
+
+                stats = cw_client.get_metric_statistics(
+                    Namespace=namespace,
+                    MetricName=metric_name,
+                    Dimensions=[{"Name": "LoadBalancer", "Value": arn_suffix}],
+                    StartTime=now - timedelta(days=idle_days),
+                    EndTime=now,
+                    Period=86400 * idle_days,
+                    Statistics=["Sum"],
+                )
+                if sum(dp["Sum"] for dp in stats.get("Datapoints", [])) > 0:
+                    continue
+
+                results.append(CheckResult(
+                    check_name=self.name,
+                    resource_type=label,
+                    resource_id=lb_arn,
+                    resource_name=lb_name,
+                    current_monthly_cost=LB_MONTHLY_FIXED,
+                    recommended_action=(
+                        f"Delete — no traffic ({metric_name}) over {idle_days} days"
+                    ),
+                    estimated_monthly_savings=LB_MONTHLY_FIXED,
+                    severity="medium",
+                    details={
+                        "lb_type": lb_type,
+                        "idle_days_checked": idle_days,
+                        "metric": metric_name,
+                        "cost_is_fixed_charge_only": True,
+                        "sub_check": "idle_load_balancer",
+                    },
+                ))
 
         return results
 
