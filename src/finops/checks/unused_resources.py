@@ -22,6 +22,7 @@ AWS APIs used:
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -65,6 +66,9 @@ LB_TRAFFIC_METRICS = {
     "application": ("ALB", "AWS/ApplicationELB", "RequestCount"),
     "network": ("NLB", "AWS/NetworkELB", "NewFlowCount"),
 }
+
+# "User initiated (2026-01-15 10:30:00 GMT)" -> the timestamp inside the parentheses
+STATE_REASON_TIME = re.compile(r"\((\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?:GMT|UTC)\)")
 
 
 class UnusedResourcesCheck(BaseCheck):
@@ -350,66 +354,90 @@ class UnusedResourcesCheck(BaseCheck):
         return results
 
     def _check_stopped_instances(self, session: Any, region: str) -> list[CheckResult]:
-        """Find EC2 instances stopped for more than 7 days.
+        """Find EC2 instances stopped for more than 7 days (`stopped_instance_days`).
 
-        Stopped instances don't incur compute charges, but you still pay for:
-        - All attached EBS volumes
-        - Any associated Elastic IPs
-        These costs can be significant for instances with large root volumes.
+        A stopped instance has no compute charge, but its EBS volumes keep billing.
+        The stop time comes from `StateTransitionReason`, which reads like
+        "User initiated (2026-01-15 10:30:00 GMT)". Instances whose reason has no
+        timestamp (for example an empty reason) are skipped, because their stop time
+        can't be shown. Volume sizes and types are read with DescribeVolumes.
+
+        The savings figure is the volumes' monthly cost. Terminating the instance
+        frees it, but keeping an AMI first costs snapshot storage, so treat it as
+        an upper bound.
         """
         results: list[CheckResult] = []
-        # Threshold used by TODO implementation below
-        self.config.thresholds.get("stopped_instance_days", 7)
+        days_threshold = self.config.thresholds.get("stopped_instance_days", 7)
 
-        # TODO: Uncomment and implement with real boto3 calls
-        # ec2_client = session.client("ec2", region_name=region)
-        #
-        # paginator = ec2_client.get_paginator("describe_instances")
-        # for page in paginator.paginate(
-        #     Filters=[{"Name": "instance-state-name", "Values": ["stopped"]}]
-        # ):
-        #     for reservation in page["Reservations"]:
-        #         for instance in reservation["Instances"]:
-        #             instance_id = instance["InstanceId"]
-        #             tags = instance.get("Tags", [])
-        #             name = self.get_resource_name(tags)
-        #
-        #             # Check state transition reason timestamp
-        #             state_reason = instance.get("StateTransitionReason", "")
-        #             # StateTransitionReason looks like:
-        #             # "User initiated (2026-01-15 10:30:00 GMT)"
-        #             # We need to parse the date to check how long it's been stopped
-        #
-        #             # Calculate EBS cost for attached volumes
-        #             ebs_monthly = 0.0
-        #             for bdm in instance.get("BlockDeviceMappings", []):
-        #                 vol_id = bdm.get("Ebs", {}).get("VolumeId")
-        #                 if vol_id:
-        #                     # TODO: Look up volume size and type for accurate pricing
-        #                     # For now, estimate based on typical root volume
-        #                     ebs_monthly += 8.0 * EBS_GP3_PER_GB_MONTH  # 8 GB root vol
-        #
-        #             # TODO: Parse state_reason to get actual stopped date
-        #             # For now, flag all stopped instances with a note to check
-        #             if ebs_monthly > 0:
-        #                 results.append(CheckResult(
-        #                     check_name=self.name,
-        #                     resource_type="EC2 Instance (stopped)",
-        #                     resource_id=instance_id,
-        #                     resource_name=name,
-        #                     current_monthly_cost=ebs_monthly,
-        #                     recommended_action=(
-        #                         f"Terminate or create AMI — stopped for >{stopped_days_threshold} days, "
-        #                         f"still paying for EBS"
-        #                     ),
-        #                     estimated_monthly_savings=ebs_monthly,
-        #                     severity="low",
-        #                     details={
-        #                         "instance_type": instance["InstanceType"],
-        #                         "state_reason": state_reason,
-        #                         "ebs_monthly_cost": ebs_monthly,
-        #                         "sub_check": "stopped_instance",
-        #                     },
-        #                 ))
+        ec2_client = session.client("ec2", region_name=region)
+
+        now = datetime.now(timezone.utc)
+        paginator = ec2_client.get_paginator("describe_instances")
+        for page in paginator.paginate(
+            Filters=[{"Name": "instance-state-name", "Values": ["stopped"]}]
+        ):
+            for reservation in page["Reservations"]:
+                for instance in reservation["Instances"]:
+                    state_reason = instance.get("StateTransitionReason", "")
+                    stopped_at = self._parse_stop_time(state_reason)
+                    if stopped_at is None:
+                        continue
+                    stopped_days = (now - stopped_at).days
+                    if stopped_days < days_threshold:
+                        continue
+
+                    volume_ids = [
+                        bdm["Ebs"]["VolumeId"]
+                        for bdm in instance.get("BlockDeviceMappings", [])
+                        if bdm.get("Ebs", {}).get("VolumeId")
+                    ]
+                    # Instance-store-only instances have no volumes and no ongoing cost.
+                    if not volume_ids:
+                        continue
+                    ebs_monthly = self._volumes_monthly_cost(ec2_client, volume_ids)
+
+                    results.append(CheckResult(
+                        check_name=self.name,
+                        resource_type="EC2 Instance (stopped)",
+                        resource_id=instance["InstanceId"],
+                        resource_name=self.get_resource_name(instance.get("Tags", [])),
+                        current_monthly_cost=ebs_monthly,
+                        recommended_action=(
+                            f"Terminate or create an AMI — stopped for {stopped_days} days, "
+                            f"still paying for {len(volume_ids)} EBS volume(s)"
+                        ),
+                        estimated_monthly_savings=ebs_monthly,
+                        severity="low" if ebs_monthly < 50 else "medium",
+                        details={
+                            "instance_type": instance["InstanceType"],
+                            "stopped_days": stopped_days,
+                            "state_reason": state_reason,
+                            "volume_ids": volume_ids,
+                            "cost_is_upper_bound": True,
+                            "sub_check": "stopped_instance",
+                        },
+                    ))
 
         return results
+
+    @staticmethod
+    def _parse_stop_time(state_reason: str) -> datetime | None:
+        """The timestamp in a StateTransitionReason, or None if it has none.
+
+        AWS writes the zone as GMT; moto writes UTC. Both are UTC.
+        """
+        match = STATE_REASON_TIME.search(state_reason)
+        if match is None:
+            return None
+        return datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+
+    @staticmethod
+    def _volumes_monthly_cost(ec2_client: Any, volume_ids: list[str]) -> float:
+        """Monthly storage cost of the given volumes, priced by size and type."""
+        total = 0.0
+        paginator = ec2_client.get_paginator("describe_volumes")
+        for page in paginator.paginate(VolumeIds=volume_ids):
+            for volume in page["Volumes"]:
+                rate = EBS_PRICE_PER_GB_MONTH.get(volume["VolumeType"], EBS_GP3_PER_GB_MONTH)
+                total += volume["Size"] * rate
+        return total
