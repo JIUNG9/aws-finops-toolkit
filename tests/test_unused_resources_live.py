@@ -2,7 +2,7 @@
 
 These tests only look at EBS findings (filtered on sub_check). EIPs are covered in
 test_unused_eip_live.py and snapshots in test_unused_snapshots_live.py. Idle load
-balancers and stopped instances are still commented out and return nothing.
+balancers and stopped instances have their own test files.
 
 Most tests use moto for real volumes, attachments and tags. Two things moto can't do
 for this check:
