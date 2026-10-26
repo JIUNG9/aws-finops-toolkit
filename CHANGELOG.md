@@ -16,6 +16,12 @@ Notable changes to this project. Format follows
 
 ### Added
 
+- `unused_resources` now finds long-stopped instances against AWS (`DescribeInstances` filtered
+  on `stopped`, then `DescribeVolumes`). The stop time is parsed from `StateTransitionReason`;
+  an instance with no timestamp in it is skipped rather than guessed. Instances stopped for
+  `stopped_instance_days` (default 7) or more are reported with their volumes priced by size and
+  type. Savings are an upper bound (`cost_is_upper_bound`), since an AMI kept before terminating
+  costs snapshot storage. This completes the check.
 - `unused_resources` now finds idle load balancers against AWS (`DescribeLoadBalancers` plus
   CloudWatch). An ALB with no `RequestCount`, or an NLB with no `NewFlowCount`, over
   `idle_lb_days` (default 7) is reported. A missing metric series counts as idle, since
