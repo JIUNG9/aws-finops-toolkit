@@ -16,6 +16,13 @@ Notable changes to this project. Format follows
 
 ### Added
 
+- `s3_lifecycle` now finds large buckets with no lifecycle rules against AWS (`ListBuckets`,
+  `GetBucketLocation`, `GetBucketLifecycleConfiguration`, and CloudWatch `BucketSizeBytes` for
+  Standard storage). Buckets in other regions, buckets below `s3_large_bucket_gb` (default 100),
+  buckets with no size metric, and buckets whose lifecycle lookup fails for any reason other
+  than "no configuration" are skipped. Savings come from a fixed model (40% Standard, 35% IA,
+  25% Glacier IR after the policy runs), so treat them as an estimate. The Intelligent-Tiering,
+  small-object and analytics parts of that module are still scaffolded.
 - `unused_resources` now finds long-stopped instances against AWS (`DescribeInstances` filtered
   on `stopped`, then `DescribeVolumes`). The stop time is parsed from `StateTransitionReason`;
   an instance with no timestamp in it is skipped rather than guessed. Instances stopped for
