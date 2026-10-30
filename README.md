@@ -17,7 +17,7 @@ AWS accounts without a production incident.
 > **3 of 10 cost checks query AWS. The other 7 do not yet.** `nat_gateway` (2026-08-07),
 > `elasticache_scheduling` and `unused_resources` (both 2026-10-18) are live, with moto-backed
 > tests asserting on real findings. `unused_resources` covers unattached EBS volumes and
-> unassociated Elastic IPs, old snapshots, idle load balancers and stopped instances, so the whole check is live. Each scaffolded module has its pricing tables, thresholds and helper
+> unassociated Elastic IPs, old snapshots, idle load balancers and stopped instances, so the whole check is live. `s3_lifecycle` is partly live: it flags large buckets with no lifecycle rules. Each scaffolded module has its pricing tables, thresholds and helper
 > logic implemented and tested, and its boto3 calls written out but commented behind
 > `# TODO: Uncomment and implement`. `finops scan` runs end to end and only returns findings
 > from those three checks.
@@ -97,9 +97,9 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 10 Cost Checks — 2 live, 8 scaffolded
+### 10 Cost Checks — 3 live, 1 partly live, 6 scaffolded
 
-`nat_gateway`, `elasticache_scheduling` and the EBS, EIP, snapshot and load balancer parts of `unused_resources` are
+`nat_gateway`, `elasticache_scheduling` and the EBS, EIP, snapshot and load balancer parts of `unused_resources`, and the no-lifecycle part of `s3_lifecycle`, are
 wired up and tested against moto. The rest have their thresholds,
 pricing lookups and helper logic implemented and under test, with the boto3 calls written
 but commented out — those still return an empty result. The column says what each is
@@ -116,7 +116,7 @@ designed to find; ✅ marks the ones that actually do it.
 | `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
 | `vpc_waste` | Abandoned VPCs, idle NAT GWs, stale WorkSpaces |
 | `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
-| `s3_lifecycle` | S3 buckets without lifecycle policies |
+| `s3_lifecycle` | ✅ **live (no-lifecycle part)** — large S3 buckets without lifecycle policies; the Intelligent-Tiering, small-object and analytics parts are still scaffolded |
 
 ### Multi-Cloud
 - **AWS** — 3 of 10 checks wired (`nat_gateway`, `elasticache_scheduling`, `unused_resources`, all five parts); the rest scaffolded (see Status)
