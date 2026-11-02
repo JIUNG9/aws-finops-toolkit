@@ -5,39 +5,33 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-99-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-141-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
-cutting. The design comes out of real FinOps work that identified ~$67K/year across 4
-AWS accounts without a production incident.
+cutting.
 
-> ### ⚠️ Status: the safety layer is built, the scanners are not
+> ### Status: the safety layer is built, most scanners are not
 >
-> **3 of 10 cost checks query AWS. The other 7 do not yet.** `nat_gateway` (2026-08-07),
-> `elasticache_scheduling` and `unused_resources` (both 2026-10-18) are live, with moto-backed
-> tests asserting on real findings. `unused_resources` covers unattached EBS volumes and
-> unassociated Elastic IPs, old snapshots, idle load balancers and stopped instances, so the whole check is live. `s3_lifecycle` is partly live: it flags large buckets with no lifecycle rules. Each scaffolded module has its pricing tables, thresholds and helper
-> logic implemented and tested, and its boto3 calls written out but commented behind
-> `# TODO: Uncomment and implement`. `finops scan` runs end to end and only returns findings
-> from those three checks.
+> **4 of 10 cost checks query AWS (one of them partly). The other 6 do not yet.**
+> Live: `nat_gateway`, `elasticache_scheduling`, `unused_resources` (all parts) and the
+> no-lifecycle part of `s3_lifecycle`. Each is covered by moto-backed tests that assert on
+> real findings. The other 6 checks have their pricing tables, thresholds and helper logic
+> implemented and tested, but return no findings. `finops scan` runs end to end and returns
+> findings only from the live checks.
 >
-> What *is* working: the FastAPI + HTMX dashboard (62 routes, 14 templates), the
-> error-budget safety gate, the pluggable LLM backend, the report writers (CSV/XLSX/
-> HTML), and `--demo` mode against fixture data. 91 tests pass, covering the framework,
-> the pricing helpers, the API surface, and moto-backed tests for the two live checks.
+> Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
+> LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
+> `pytest --collect-only -q` collects 141 tests.
 >
-> Use `finops dashboard --demo` to see the interface. Against a real account, only NAT
-> Gateways, unattached EBS volumes and unassociated EIPs will show up; the other eight checks still return
-> nothing. Wiring them up is the next piece of work, and it's tracked in the roadmap below.
+> Use `finops dashboard --demo` to see the interface. Against a real account, only the
+> live checks produce findings.
 
 ---
 
 ## Why This Exists
 
 Most FinOps tools tell you *what* to cut. They don't tell you *if it's safe*.
-
-No existing tool combines SRE reliability (error budgets, SLOs) with cost optimization. Sedai is autonomous but opaque. Harness CCM has budgets but no error budget gating. This fills the gap.
 
 **Every recommendation passes a 5-step safety analysis:**
 
@@ -97,7 +91,7 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 10 Cost Checks — 3 live, 1 partly live, 6 scaffolded
+### 10 Cost Checks: 4 live (one partly), 6 scaffolded
 
 `nat_gateway`, `elasticache_scheduling` and the EBS, EIP, snapshot and load balancer parts of `unused_resources`, and the no-lifecycle part of `s3_lifecycle`, are
 wired up and tested against moto. The rest have their thresholds,
@@ -118,10 +112,8 @@ designed to find; ✅ marks the ones that actually do it.
 | `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
 | `s3_lifecycle` | ✅ **live (no-lifecycle part)** — large S3 buckets without lifecycle policies; the Intelligent-Tiering, small-object and analytics parts are still scaffolded |
 
-### Multi-Cloud
-- **AWS** — 3 of 10 checks wired (`nat_gateway`, `elasticache_scheduling`, `unused_resources`, all five parts); the rest scaffolded (see Status)
-- **Azure** — provider abstraction only, no implementation
-- **GCP** — provider abstraction only, no implementation
+### Cloud support
+AWS only. The provider layer has an abstraction, and no other provider is implemented.
 
 ### Pluggable AI
 Bring your own LLM API key:
@@ -150,10 +142,8 @@ FastAPI Application
     │   ├── SafetyAnalyzer      — traffic + deps + error budget gate
     │   └── AI Recommendations  — pluggable LLM (Claude/OpenAI)
     │
-    ├── Provider Layer (pluggable)
-    │   ├── AWS (boto3 — calls written, commented out)
-    │   ├── Azure (stub)
-    │   └── GCP (stub)
+    ├── Provider Layer
+    │   └── AWS (boto3)
     │
     └── SQLite (aiosqlite) — 16 tables, zero setup
 ```
@@ -218,7 +208,7 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the remaining 7 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
+1. **Wire up the remaining 6 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
    and the EBS, EIP, snapshot and load balancer parts of `unused_resources` followed it: uncomment the boto3 calls, keep
    the paginator, and add a `moto`-backed test per check that asserts on actual findings
    rather than `isinstance(results, list)`. `unused_resources` is now fully wired.
@@ -229,7 +219,6 @@ In order of what unblocks the most:
    `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
    instance family isn't in the table.
 3. **`preflight` against live resources.** Same shape as the checks — no AWS calls yet.
-4. **Then** the Azure and GCP providers, which are abstraction-only today.
 
 ## Development
 
