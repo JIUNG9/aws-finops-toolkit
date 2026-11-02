@@ -8,6 +8,10 @@ Notable changes to this project. Format follows
 
 ### Changed
 
+- README: removed the unsourced "$67K/year across 4 AWS accounts" figure, the "no existing tool
+  combines" comparison and the multi-cloud section (only AWS is supported). The test badge now
+  matches `pytest --collect-only -q` (141), and the status block gives one count: 4 of 10 checks
+  query AWS (`s3_lifecycle` only for buckets with no lifecycle rule), 6 are scaffolded.
 - `unused_resources` skips unattached EBS volumes younger than `unattached_volume_grace_days`
   (default 7), so a volume created or detached for a deploy isn't reported. DescribeVolumes has
   no detach time, so this is volume age, not time spent detached. Set it to 0 to report everything.
