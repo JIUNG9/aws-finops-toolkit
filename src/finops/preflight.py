@@ -151,7 +151,7 @@ class AccessStatus:
 @dataclass
 class TargetMapping:
     """Check 6: Resource → service → APM mapping."""
-    resource_id: str = ""           # e.g., "i-0abc123", "pn-sh-rds-prod"
+    resource_id: str = ""           # e.g., "i-0abc123", "app-rds-prod01"
     resource_type: str = ""         # e.g., "EC2", "RDS", "ElastiCache"
     instance_type: str = ""         # e.g., "db.r6g.xlarge"
     service_name: str = ""          # e.g., "gateway-server"

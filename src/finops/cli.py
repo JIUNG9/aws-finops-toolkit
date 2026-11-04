@@ -100,11 +100,11 @@ def preflight(
 
     Examples:
 
-        finops preflight --target pn-sh-rds-prod --profile dodo-dev
+        finops preflight --target app-rds-prod01 --profile acme-dev
 
         finops preflight -t i-0abc123 -p prod --apm signoz --apm-endpoint http://signoz:3301
 
-        finops preflight -t gateway-server -p dodo-dev -o preflight.json
+        finops preflight -t gateway-server -p acme-dev -o preflight.json
     """
     config: FinOpsConfig = ctx.obj["config"]
     effective_region = region or "us-east-1"

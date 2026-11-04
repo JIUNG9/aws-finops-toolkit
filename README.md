@@ -248,8 +248,7 @@ MIT
 
 **June Gu**, Site Reliability Engineer · https://github.com/JIUNG9
 
-Building reliable infrastructure at scale. Relocating to Canada.
+Building reliable infrastructure at scale.
 
-- [LinkedIn](https://linkedin.com/in/junegu)
 - [Medium](https://medium.com/@June-Gu)
 - [GitHub](https://github.com/JIUNG9)

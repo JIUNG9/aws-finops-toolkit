@@ -157,7 +157,7 @@ preflight:
   #     priority: P0
   #     stateless: false
   #     resources:
-  #       - pn-sh-rds-prod
+  #       - app-rds-prod01
   #     dependencies:
   #       upstream: [gateway-server, auth-server]
   #       downstream: []
