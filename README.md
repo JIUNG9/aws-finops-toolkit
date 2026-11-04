@@ -248,6 +248,7 @@ MIT
 
 **June Gu**, Site Reliability Engineer · https://github.com/JIUNG9
 
+Building reliable infrastructure at scale.
 
 - [Medium](https://medium.com/@June-Gu)
 - [GitHub](https://github.com/JIUNG9)
