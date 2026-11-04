@@ -6,6 +6,12 @@ Notable changes to this project. Format follows
 
 ## [Unreleased]
 
+### Removed
+
+- The Azure and GCP provider stubs (`finops.providers.azure`, `finops.providers.gcp`). Every method
+  raised `NotImplementedError`. Only AWS is supported; `get_provider("azure")` now raises the same
+  "Unknown provider" error as any other unregistered name.
+
 ### Changed
 
 - README: removed the unsourced "$67K/year across 4 AWS accounts" figure, the "no existing tool
