@@ -67,7 +67,6 @@ checks:
   nat_gateway: true
   spot_candidates: false     # Skip Spot check
   unused_resources: true
-  reserved_instances: false  # Skip RI check
   elasticache_scheduling: true
   rds_rightsizing: true
 ```
