@@ -18,7 +18,6 @@ from finops.checks.ec2_rightsizing import EC2RightsizingCheck
 from finops.checks.nat_gateway import NATGatewayCheck
 from finops.checks.spot_candidates import SpotCandidatesCheck
 from finops.checks.unused_resources import UnusedResourcesCheck
-from finops.checks.reserved_instances import ReservedInstancesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.rds_rightsizing import RDSRightsizingCheck
 from finops.checks.vpc_waste import (
@@ -154,20 +153,6 @@ class TestUnusedResourcesCheck:
 
     def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
         check = UnusedResourcesCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-
-class TestReservedInstancesCheck:
-    """Tests for Reserved Instance recommendations check."""
-
-    def test_get_ri_discount(self, default_config: FinOpsConfig) -> None:
-        check = ReservedInstancesCheck(config=default_config)
-        assert check._get_ri_discount("m5.xlarge") == 0.33
-        assert check._get_ri_discount("t3.large") == 0.28
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        check = ReservedInstancesCheck(config=default_config)
         results = check.run(session=mock_session, region="us-east-1")
         assert isinstance(results, list)
 
@@ -448,3 +433,15 @@ class TestS3LifecycleCheck:
         assert isinstance(check._check_intelligent_tiering_cost(mock_session, "us-east-1"), list)
         assert isinstance(check._check_small_objects_ia_penalty(mock_session, "us-east-1"), list)
         assert isinstance(check._check_no_analytics(mock_session, "us-east-1"), list)
+
+
+class TestRemovedCheckConfig:
+    """A config written before `reserved_instances` was removed must still work."""
+
+    def test_stale_flag_is_ignored(self, default_config: FinOpsConfig) -> None:
+        from finops.checks import CHECKS, get_enabled_checks
+
+        default_config.checks["reserved_instances"] = True
+        names = [c.name for c in get_enabled_checks(default_config)]
+        assert "reserved_instances" not in CHECKS
+        assert sorted(names) == sorted(CHECKS)

@@ -127,7 +127,6 @@ checks:
   nat_gateway: true
   spot_candidates: true
   unused_resources: true
-  reserved_instances: true
   elasticache_scheduling: true
   rds_rightsizing: true
 ```

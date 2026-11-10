@@ -8,6 +8,10 @@ Notable changes to this project. Format follows
 
 ### Removed
 
+- The `reserved_instances` check (`finops.checks.reserved_instances`), its config flag, demo finding
+  and tests. It returned no findings and had no AWS calls. A config file that still sets
+  `reserved_instances` loads without error and the key is ignored. The preflight RI/Savings Plan
+  coverage step is unchanged and is still scaffolded.
 - The Azure and GCP provider stubs (`finops.providers.azure`, `finops.providers.gcp`). Every method
   raised `NotImplementedError`. Only AWS is supported; `get_provider("azure")` now raises the same
   "Unknown provider" error as any other unregistered name.
@@ -16,7 +20,7 @@ Notable changes to this project. Format follows
 
 - README: removed the unsourced "$67K/year across 4 AWS accounts" figure, the "no existing tool
   combines" comparison and the multi-cloud section (only AWS is supported). The test badge now
-  matches `pytest --collect-only -q` (141), and the status block gives one count: 4 of 10 checks
+  matches `pytest --collect-only -q` (143), and the status block gives one count: 4 of 10 checks
   query AWS (`s3_lifecycle` only for buckets with no lifecycle rule), 6 are scaffolded.
 - `unused_resources` skips unattached EBS volumes younger than `unattached_volume_grace_days`
   (default 7), so a volume created or detached for a deploy isn't reported. DescribeVolumes has

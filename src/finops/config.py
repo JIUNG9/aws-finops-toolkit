@@ -46,7 +46,6 @@ DEFAULT_CHECKS: dict[str, bool] = {
     "nat_gateway": True,
     "spot_candidates": True,
     "unused_resources": True,
-    "reserved_instances": True,
     "elasticache_scheduling": True,
     "rds_rightsizing": True,
     "vpc_waste": True,

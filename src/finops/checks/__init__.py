@@ -14,7 +14,6 @@ from finops.checks.ec2_rightsizing import EC2RightsizingCheck
 from finops.checks.nat_gateway import NATGatewayCheck
 from finops.checks.spot_candidates import SpotCandidatesCheck
 from finops.checks.unused_resources import UnusedResourcesCheck
-from finops.checks.reserved_instances import ReservedInstancesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.rds_rightsizing import RDSRightsizingCheck
 from finops.checks.vpc_waste import VPCWasteCheck
@@ -29,7 +28,6 @@ CHECKS: dict[str, type[BaseCheck]] = {
     "nat_gateway": NATGatewayCheck,
     "spot_candidates": SpotCandidatesCheck,
     "unused_resources": UnusedResourcesCheck,
-    "reserved_instances": ReservedInstancesCheck,
     "elasticache_scheduling": ElastiCacheSchedulingCheck,
     "rds_rightsizing": RDSRightsizingCheck,
     "vpc_waste": VPCWasteCheck,
