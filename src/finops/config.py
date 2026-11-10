@@ -48,8 +48,6 @@ DEFAULT_CHECKS: dict[str, bool] = {
     "unused_resources": True,
     "elasticache_scheduling": True,
     "rds_rightsizing": True,
-    "vpc_waste": True,
-    "cloudwatch_waste": True,
     "s3_lifecycle": True,
 }
 

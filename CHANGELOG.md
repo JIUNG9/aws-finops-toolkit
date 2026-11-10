@@ -8,6 +8,11 @@ Notable changes to this project. Format follows
 
 ### Removed
 
+- The `vpc_waste` and `cloudwatch_waste` checks (`finops.checks.vpc_waste`,
+  `finops.checks.cloudwatch_waste`), their config flags, the two demo findings and 13 tests. Both
+  had pricing tables and helper stubs but no AWS calls and returned no findings. Config files that
+  still set either flag load without error and the key is ignored. The demo dashboard now shows 7
+  findings instead of 9. The README counts read 4 of 7 checks live.
 - The `reserved_instances` check (`finops.checks.reserved_instances`), its config flag, demo finding
   and tests. It returned no findings and had no AWS calls. A config file that still sets
   `reserved_instances` loads without error and the key is ignored. The preflight RI/Savings Plan

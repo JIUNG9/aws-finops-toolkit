@@ -20,13 +20,6 @@ from finops.checks.spot_candidates import SpotCandidatesCheck
 from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.rds_rightsizing import RDSRightsizingCheck
-from finops.checks.vpc_waste import (
-    VPCWasteCheck, NAT_GATEWAY_MONTHLY_COST, EIP_MONTHLY_COST,
-    DIRECTORY_SIMPLE_AD_MONTHLY, DIRECTORY_MICROSOFT_AD_MONTHLY, WORKSPACES_BUNDLE_COSTS,
-)
-from finops.checks.cloudwatch_waste import (
-    CloudWatchWasteCheck, CW_STORAGE_PER_GB_MONTH, CW_INGESTION_PER_GB, BYTES_PER_GB,
-)
 from finops.checks.s3_lifecycle import (
     S3LifecycleCheck, S3_STANDARD_PER_GB, S3_STANDARD_IA_PER_GB,
     S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS, S3_IA_MIN_BILLABLE_SIZE_KB,
@@ -203,117 +196,6 @@ class TestRDSRightsizingCheck:
         assert isinstance(results, list)
 
 
-class TestVPCWasteCheck:
-    """Tests for VPC waste detection check."""
-
-    def test_check_name_and_description(self, default_config: FinOpsConfig) -> None:
-        check = VPCWasteCheck(config=default_config)
-        assert check.name == "vpc_waste"
-        assert "VPC" in check.description
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        check = VPCWasteCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-    def test_pricing_constants(self) -> None:
-        """Verify pricing constants are reasonable."""
-        assert NAT_GATEWAY_MONTHLY_COST == 43.00
-        assert EIP_MONTHLY_COST == 3.65
-        assert DIRECTORY_SIMPLE_AD_MONTHLY == 144.00
-        assert DIRECTORY_MICROSOFT_AD_MONTHLY == 360.00
-
-    def test_workspaces_bundle_costs(self) -> None:
-        """Verify WorkSpaces bundle pricing is populated."""
-        assert len(WORKSPACES_BUNDLE_COSTS) >= 5
-        assert WORKSPACES_BUNDLE_COSTS["Standard"] == 35.00
-        assert WORKSPACES_BUNDLE_COSTS["Performance"] == 60.00
-
-    def test_abandoned_vpc_cost_model(self) -> None:
-        """Verify the abandoned VPC cost model.
-
-        A typical abandoned VPC with 2 NAT GWs + 3 EIPs + 1 Directory:
-        2 * $43 + 3 * $3.65 + $144 = $240.95/month
-        """
-        nat_cost = 2 * NAT_GATEWAY_MONTHLY_COST
-        eip_cost = 3 * EIP_MONTHLY_COST
-        dir_cost = DIRECTORY_SIMPLE_AD_MONTHLY
-        total = nat_cost + eip_cost + dir_cost
-        assert total == pytest.approx(240.95, rel=0.01)
-
-    def test_sub_checks_return_lists(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        """Verify each sub-check returns a list."""
-        check = VPCWasteCheck(config=default_config)
-        assert isinstance(check._check_abandoned_vpcs(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_idle_nat_gateways(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_stale_workspaces(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_orphan_directories(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_idle_storage_gateways(mock_session, "us-east-1"), list)
-
-
-class TestCloudWatchWasteCheck:
-    """Tests for CloudWatch Log waste detection check."""
-
-    def test_check_name_and_description(self, default_config: FinOpsConfig) -> None:
-        check = CloudWatchWasteCheck(config=default_config)
-        assert check.name == "cloudwatch_waste"
-        assert "log" in check.description.lower() or "Log" in check.description
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        check = CloudWatchWasteCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-    def test_pricing_constants(self) -> None:
-        """Verify CloudWatch Logs pricing constants."""
-        assert CW_STORAGE_PER_GB_MONTH == 0.03
-        assert CW_INGESTION_PER_GB == 0.50
-        assert BYTES_PER_GB == 1024 ** 3
-
-    def test_storage_cost_calculation(self) -> None:
-        """Verify storage cost calculation for a 50GB log group.
-
-        50 GB * $0.03/GB = $1.50/month
-        """
-        stored_gb = 50.0
-        monthly_cost = stored_gb * CW_STORAGE_PER_GB_MONTH
-        assert monthly_cost == pytest.approx(1.50, rel=0.01)
-
-    def test_ingestion_cost_calculation(self) -> None:
-        """Verify ingestion cost for 100GB/month.
-
-        100 GB * $0.50/GB = $50.00/month
-        """
-        ingestion_gb = 100.0
-        ingestion_cost = ingestion_gb * CW_INGESTION_PER_GB
-        assert ingestion_cost == pytest.approx(50.00, rel=0.01)
-
-    def test_retention_reduction_savings(self) -> None:
-        """Verify retention reduction savings model.
-
-        Log group with 365-day retention reduced to 90-day:
-        Reduction ratio: 1 - (90/365) = 0.753
-        If storing 100GB at $0.03/GB = $3.00/mo, savings ~= $2.26/mo
-        """
-        stored_gb = 100.0
-        current_retention = 365
-        recommended_retention = 90
-        monthly_cost = stored_gb * CW_STORAGE_PER_GB_MONTH
-        reduction_ratio = 1.0 - (recommended_retention / current_retention)
-        savings = monthly_cost * reduction_ratio
-        assert reduction_ratio == pytest.approx(0.753, rel=0.01)
-        assert savings == pytest.approx(2.26, rel=0.02)
-
-    def test_sub_checks_return_lists(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        """Verify each sub-check returns a list."""
-        check = CloudWatchWasteCheck(config=default_config)
-        assert isinstance(check._check_orphan_log_groups(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_inactive_log_groups(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_over_retained_log_groups(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_high_ingestion_log_groups(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_no_retention_policy(mock_session, "us-east-1"), list)
-
-
 class TestS3LifecycleCheck:
     """Tests for S3 lifecycle optimization check."""
 
@@ -436,12 +318,14 @@ class TestS3LifecycleCheck:
 
 
 class TestRemovedCheckConfig:
-    """A config written before `reserved_instances` was removed must still work."""
+    """A config written before a stub check was removed must still work."""
 
     def test_stale_flag_is_ignored(self, default_config: FinOpsConfig) -> None:
         from finops.checks import CHECKS, get_enabled_checks
 
-        default_config.checks["reserved_instances"] = True
+        removed = ("reserved_instances", "vpc_waste", "cloudwatch_waste")
+        for name in removed:
+            default_config.checks[name] = True
         names = [c.name for c in get_enabled_checks(default_config)]
-        assert "reserved_instances" not in CHECKS
+        assert not set(removed) & set(CHECKS)
         assert sorted(names) == sorted(CHECKS)

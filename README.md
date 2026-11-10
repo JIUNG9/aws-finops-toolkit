@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-143-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-130-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -13,16 +13,16 @@ cutting.
 
 > ### Status: the safety layer is built, most scanners are not
 >
-> **4 of 9 cost checks query AWS (one of them partly). The other 5 do not yet.**
+> **4 of 7 cost checks query AWS (one of them partly). The other 3 do not yet.**
 > Live: `nat_gateway`, `elasticache_scheduling`, `unused_resources` (all parts) and the
 > no-lifecycle part of `s3_lifecycle`. Each is covered by moto-backed tests that assert on
-> real findings. The other 5 checks have their pricing tables, thresholds and helper logic
+> real findings. The other 3 checks have their pricing tables, thresholds and helper logic
 > implemented and tested, but return no findings. `finops scan` runs end to end and returns
 > findings only from the live checks.
 >
 > Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
 > LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
-> `pytest --collect-only -q` collects 144 tests.
+> `pytest --collect-only -q` collects 130 tests.
 >
 > Use `finops dashboard --demo` to see the interface. Against a real account, only the
 > live checks produce findings.
@@ -91,7 +91,7 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 9 Cost Checks: 4 live (one partly), 5 scaffolded
+### 7 Cost Checks: 4 live (one partly), 3 scaffolded
 
 `nat_gateway`, `elasticache_scheduling` and the EBS, EIP, snapshot and load balancer parts of `unused_resources`, and the no-lifecycle part of `s3_lifecycle`, are
 wired up and tested against moto. The rest have their thresholds,
@@ -107,8 +107,6 @@ designed to find; ✅ marks the ones that actually do it.
 | `unused_resources` | ✅ **live (EBS + EIP + snapshots + LBs + stopped instances)** — unattached EBS volumes, unassociated Elastic IPs, old snapshots and idle ALBs/NLBs, and instances stopped for more than 7 days |
 | `elasticache_scheduling` | ✅ **live** — non-prod clusters and replication groups running 24/7 |
 | `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
-| `vpc_waste` | Abandoned VPCs, idle NAT GWs, stale WorkSpaces |
-| `cloudwatch_waste` | Orphan log groups, infinite retention, high ingestion |
 | `s3_lifecycle` | ✅ **live (no-lifecycle part)** — large S3 buckets without lifecycle policies; the Intelligent-Tiering, small-object and analytics parts are still scaffolded |
 
 ### Cloud support
@@ -207,7 +205,7 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the remaining 5 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
+1. **Wire up the remaining 3 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
    and the EBS, EIP, snapshot and load balancer parts of `unused_resources` followed it: uncomment the boto3 calls, keep
    the paginator, and add a `moto`-backed test per check that asserts on actual findings
    rather than `isinstance(results, list)`. `unused_resources` is now fully wired.
