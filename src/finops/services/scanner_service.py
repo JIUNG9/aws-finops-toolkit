@@ -55,26 +55,11 @@ DEMO_FINDINGS: list[dict[str, object]] = [
         ),
     },
     {
-        "check_name": "cloudwatch_waste", "resource_type": "Log Group",
-        "resource_id": "/aws/lambda/old-function",
-        "resource_name": "/aws/lambda/old-function",
-        "severity": "medium", "current_monthly_cost": 25.0,
-        "estimated_monthly_savings": 25.0,
-        "recommended_action": "Delete orphan log group — Lambda function deleted 90+ days ago",
-    },
-    {
         "check_name": "s3_lifecycle", "resource_type": "S3 Bucket",
         "resource_id": "company-data-lake", "resource_name": "company-data-lake",
         "severity": "medium", "current_monthly_cost": 180.0,
         "estimated_monthly_savings": 54.0,
         "recommended_action": "Add lifecycle policy — transition to IA after 30 days, Glacier after 90",
-    },
-    {
-        "check_name": "vpc_waste", "resource_type": "VPC",
-        "resource_id": "vpc-old-staging", "resource_name": "old-staging-vpc",
-        "severity": "high", "current_monthly_cost": 64.0,
-        "estimated_monthly_savings": 64.0,
-        "recommended_action": "Delete abandoned VPC — no running instances, NAT GW still billing",
     },
 ]
 
@@ -103,7 +88,7 @@ async def create_demo_scan(db: Database) -> str:
         (scan_id, account_id, now, now, len(DEMO_FINDINGS), total_savings,
          json.dumps([
              "ec2_rightsizing", "nat_gateway", "unused_resources", "rds_rightsizing",
-             "cloudwatch_waste", "s3_lifecycle", "vpc_waste",
+             "s3_lifecycle",
          ])),
     )
 
