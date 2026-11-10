@@ -83,7 +83,7 @@ class TestFindingsAPI:
         r = await client.get("/api/v1/findings")
         assert r.status_code == 200
         data = r.json()
-        assert len(data) == 10
+        assert len(data) == 9
 
     @pytest.mark.asyncio
     async def test_watchlist(self, client):

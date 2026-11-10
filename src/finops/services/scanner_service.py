@@ -76,14 +76,6 @@ DEMO_FINDINGS: list[dict[str, object]] = [
         "estimated_monthly_savings": 64.0,
         "recommended_action": "Delete abandoned VPC — no running instances, NAT GW still billing",
     },
-    {
-        "check_name": "reserved_instances", "resource_type": "RI Recommendation",
-        "resource_id": "ri-suggestion-1",
-        "resource_name": "m5.large x 4 (1yr No Upfront)",
-        "severity": "info", "current_monthly_cost": 584.0,
-        "estimated_monthly_savings": 175.0,
-        "recommended_action": "Purchase 4x m5.large RIs — stable on-demand usage for 6+ months",
-    },
 ]
 
 
@@ -111,7 +103,7 @@ async def create_demo_scan(db: Database) -> str:
         (scan_id, account_id, now, now, len(DEMO_FINDINGS), total_savings,
          json.dumps([
              "ec2_rightsizing", "nat_gateway", "unused_resources", "rds_rightsizing",
-             "cloudwatch_waste", "s3_lifecycle", "vpc_waste", "reserved_instances",
+             "cloudwatch_waste", "s3_lifecycle", "vpc_waste",
          ])),
     )
 
