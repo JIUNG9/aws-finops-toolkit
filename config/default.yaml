@@ -43,8 +43,6 @@ checks:
   unused_resources: true
   elasticache_scheduling: true
   rds_rightsizing: true
-  vpc_waste: true
-  cloudwatch_waste: true
   s3_lifecycle: true
 
 # ─── Pre-flight analysis configuration ───────────────────────────
