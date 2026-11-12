@@ -42,12 +42,9 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
 
 # Default check enable/disable flags
 DEFAULT_CHECKS: dict[str, bool] = {
-    "ec2_rightsizing": True,
     "nat_gateway": True,
-    "spot_candidates": True,
     "unused_resources": True,
     "elasticache_scheduling": True,
-    "rds_rightsizing": True,
     "s3_lifecycle": True,
 }
 

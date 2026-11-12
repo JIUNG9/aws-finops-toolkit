@@ -11,20 +11,6 @@ from finops.db.database import Database
 
 DEMO_FINDINGS: list[dict[str, object]] = [
     {
-        "check_name": "ec2_rightsizing", "resource_type": "EC2 Instance",
-        "resource_id": "i-0abc123def456", "resource_name": "api-server-prod-1",
-        "severity": "high", "current_monthly_cost": 156.0,
-        "estimated_monthly_savings": 78.0,
-        "recommended_action": "Downsize from m5.xlarge to m5.large — avg CPU 12% over 14 days",
-    },
-    {
-        "check_name": "ec2_rightsizing", "resource_type": "EC2 Instance",
-        "resource_id": "i-0def456abc789", "resource_name": "worker-staging-2",
-        "severity": "medium", "current_monthly_cost": 73.0,
-        "estimated_monthly_savings": 36.5,
-        "recommended_action": "Downsize from t3.large to t3.medium — avg CPU 8%",
-    },
-    {
         "check_name": "nat_gateway", "resource_type": "NAT Gateway",
         "resource_id": "nat-0abc123", "resource_name": "nat-dev-us-east-1a",
         "severity": "high", "current_monthly_cost": 32.0,
@@ -44,15 +30,6 @@ DEMO_FINDINGS: list[dict[str, object]] = [
         "severity": "low", "current_monthly_cost": 3.6,
         "estimated_monthly_savings": 3.6,
         "recommended_action": "Release unused EIP — not attached to any instance",
-    },
-    {
-        "check_name": "rds_rightsizing", "resource_type": "RDS Instance",
-        "resource_id": "prod-orders-db", "resource_name": "prod-orders-db",
-        "severity": "high", "current_monthly_cost": 420.0,
-        "estimated_monthly_savings": 140.0,
-        "recommended_action": (
-            "Downsize from db.r6g.xlarge to db.r6g.large — avg CPU 15%, memory 40%"
-        ),
     },
     {
         "check_name": "s3_lifecycle", "resource_type": "S3 Bucket",
@@ -87,8 +64,7 @@ async def create_demo_scan(db: Database) -> str:
         VALUES (?, ?, 'completed', ?, ?, ?, ?, ?)""",
         (scan_id, account_id, now, now, len(DEMO_FINDINGS), total_savings,
          json.dumps([
-             "ec2_rightsizing", "nat_gateway", "unused_resources", "rds_rightsizing",
-             "s3_lifecycle",
+             "nat_gateway", "unused_resources", "s3_lifecycle",
          ])),
     )
 

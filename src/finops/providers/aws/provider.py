@@ -92,8 +92,7 @@ class AWSProvider(CloudProvider):
 
     def get_supported_checks(self) -> list[str]:
         return [
-            "ec2_rightsizing", "nat_gateway", "spot_candidates", "unused_resources",
-            "elasticache_scheduling", "rds_rightsizing", "s3_lifecycle",
+            "nat_gateway", "unused_resources", "elasticache_scheduling", "s3_lifecycle",
         ]
 
 

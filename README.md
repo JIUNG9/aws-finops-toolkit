@@ -5,24 +5,24 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-130-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-119-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
 cutting.
 
-> ### Status: the safety layer is built, most scanners are not
+> ### Status: the safety layer is built, the scanner set is small
 >
-> **4 of 7 cost checks query AWS (one of them partly). The other 3 do not yet.**
-> Live: `nat_gateway`, `elasticache_scheduling`, `unused_resources` (all parts) and the
-> no-lifecycle part of `s3_lifecycle`. Each is covered by moto-backed tests that assert on
-> real findings. The other 3 checks have their pricing tables, thresholds and helper logic
-> implemented and tested, but return no findings. `finops scan` runs end to end and returns
-> findings only from the live checks.
+> **All 4 cost checks query AWS; `s3_lifecycle` does so only for buckets with no lifecycle rule.**
+> The checks are `nat_gateway`, `elasticache_scheduling`, `unused_resources` and `s3_lifecycle`.
+> Each is covered by moto-backed tests that assert on real findings. The Intelligent-Tiering,
+> small-object and analytics parts of `s3_lifecycle` have helper logic and tests but return no
+> findings. Checks for EC2 and RDS right-sizing and Spot candidates were removed because they
+> never called AWS.
 >
 > Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
 > LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
-> `pytest --collect-only -q` collects 130 tests.
+> `pytest --collect-only -q` collects 119 tests.
 >
 > Use `finops dashboard --demo` to see the interface. Against a real account, only the
 > live checks produce findings.
@@ -91,22 +91,18 @@ finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
 ```
 
-### 7 Cost Checks: 4 live (one partly), 3 scaffolded
+### 4 Cost Checks
 
-`nat_gateway`, `elasticache_scheduling` and the EBS, EIP, snapshot and load balancer parts of `unused_resources`, and the no-lifecycle part of `s3_lifecycle`, are
-wired up and tested against moto. The rest have their thresholds,
-pricing lookups and helper logic implemented and under test, with the boto3 calls written
-but commented out — those still return an empty result. The column says what each is
-designed to find; ✅ marks the ones that actually do it.
+All four query AWS and are tested against moto. `s3_lifecycle` reports only buckets with no
+lifecycle rule. Its Intelligent-Tiering, small-object and analytics parts have their thresholds,
+pricing lookups and helper logic under test, with the boto3 calls commented out, so they return
+no findings.
 
-| Check | Designed to find |
+| Check | What it finds |
 |-------|--------------|
-| `ec2_rightsizing` | Over-provisioned instances (avg CPU < 20% over 14 days) |
 | `nat_gateway` | ✅ **live** — NAT Gateways in dev/staging, and unused ones with 0 bytes processed |
-| `spot_candidates` | Non-prod workloads eligible for Spot instances |
 | `unused_resources` | ✅ **live (EBS + EIP + snapshots + LBs + stopped instances)** — unattached EBS volumes, unassociated Elastic IPs, old snapshots and idle ALBs/NLBs, and instances stopped for more than 7 days |
 | `elasticache_scheduling` | ✅ **live** — non-prod clusters and replication groups running 24/7 |
-| `rds_rightsizing` | Over-provisioned databases, non-prod Multi-AZ |
 | `s3_lifecycle` | ✅ **live (no-lifecycle part)** — large S3 buckets without lifecycle policies; the Intelligent-Tiering, small-object and analytics parts are still scaffolded |
 
 ### Cloud support
@@ -205,7 +201,7 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the remaining 3 checks.** `nat_gateway` set the pattern; `elasticache_scheduling`
+1. **Wire up the rest of `s3_lifecycle`.** `nat_gateway` set the pattern; `elasticache_scheduling`
    and the EBS, EIP, snapshot and load balancer parts of `unused_resources` followed it: uncomment the boto3 calls, keep
    the paginator, and add a `moto`-backed test per check that asserts on actual findings
    rather than `isinstance(results, list)`. `unused_resources` is now fully wired.

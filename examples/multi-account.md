@@ -123,12 +123,9 @@ accounts:
     name: Production (444444444444)
 
 checks:
-  ec2_rightsizing: true
   nat_gateway: true
-  spot_candidates: true
   unused_resources: true
   elasticache_scheduling: true
-  rds_rightsizing: true
 ```
 
 ```bash

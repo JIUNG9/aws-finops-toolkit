@@ -8,6 +8,11 @@ Notable changes to this project. Format follows
 
 ### Removed
 
+- The `ec2_rightsizing`, `rds_rightsizing` and `spot_candidates` checks, their config flags, the
+  three demo findings and 11 tests. None made AWS calls and all returned no findings. Config files
+  that still set these flags load without error and the key is ignored. `APPROX_HOURLY_PRICING`
+  went with `ec2_rightsizing`; no live check used it. The demo dashboard now shows 4 findings
+  instead of 7. The README counts read 4 of 4 checks querying AWS (`s3_lifecycle` partly).
 - The `vpc_waste` and `cloudwatch_waste` checks (`finops.checks.vpc_waste`,
   `finops.checks.cloudwatch_waste`), their config flags, the two demo findings and 13 tests. Both
   had pricing tables and helper stubs but no AWS calls and returned no findings. Config files that
