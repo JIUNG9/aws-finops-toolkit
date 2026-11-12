@@ -37,12 +37,9 @@ accounts: []
 # Enable or disable individual checks.
 # All checks are enabled by default.
 checks:
-  ec2_rightsizing: true
   nat_gateway: true
-  spot_candidates: true
   unused_resources: true
   elasticache_scheduling: true
-  rds_rightsizing: true
   s3_lifecycle: true
 
 # ─── Pre-flight analysis configuration ───────────────────────────

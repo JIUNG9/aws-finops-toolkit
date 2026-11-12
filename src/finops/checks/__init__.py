@@ -10,24 +10,18 @@ from __future__ import annotations
 from typing import Optional
 
 from finops.checks.base import BaseCheck
-from finops.checks.ec2_rightsizing import EC2RightsizingCheck
 from finops.checks.nat_gateway import NATGatewayCheck
-from finops.checks.spot_candidates import SpotCandidatesCheck
 from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
-from finops.checks.rds_rightsizing import RDSRightsizingCheck
 from finops.checks.s3_lifecycle import S3LifecycleCheck
 from finops.config import FinOpsConfig
 
 
 # Registry of all available checks, keyed by their name
 CHECKS: dict[str, type[BaseCheck]] = {
-    "ec2_rightsizing": EC2RightsizingCheck,
     "nat_gateway": NATGatewayCheck,
-    "spot_candidates": SpotCandidatesCheck,
     "unused_resources": UnusedResourcesCheck,
     "elasticache_scheduling": ElastiCacheSchedulingCheck,
-    "rds_rightsizing": RDSRightsizingCheck,
     "s3_lifecycle": S3LifecycleCheck,
 }
 
