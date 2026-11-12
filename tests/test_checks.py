@@ -14,12 +14,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from finops.checks.base import CheckResult
-from finops.checks.ec2_rightsizing import EC2RightsizingCheck
 from finops.checks.nat_gateway import NATGatewayCheck
-from finops.checks.spot_candidates import SpotCandidatesCheck
 from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
-from finops.checks.rds_rightsizing import RDSRightsizingCheck
 from finops.checks.s3_lifecycle import (
     S3LifecycleCheck, S3_STANDARD_PER_GB, S3_STANDARD_IA_PER_GB,
     S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS, S3_IA_MIN_BILLABLE_SIZE_KB,
@@ -87,56 +84,11 @@ class TestCheckResult:
         assert d["details"]["instance_type"] == "m5.2xlarge"
 
 
-class TestEC2RightsizingCheck:
-    """Tests for EC2 right-sizing check."""
-
-    def test_get_smaller_type(self, default_config: FinOpsConfig) -> None:
-        check = EC2RightsizingCheck(config=default_config)
-        assert check._get_smaller_type("m5.2xlarge") == "m5.xlarge"
-        assert check._get_smaller_type("m5.xlarge") == "m5.large"
-        assert check._get_smaller_type("m5.large") is None  # Already smallest
-
-    def test_get_smaller_type_invalid(self, default_config: FinOpsConfig) -> None:
-        check = EC2RightsizingCheck(config=default_config)
-        assert check._get_smaller_type("invalid") is None
-
-    def test_estimate_monthly_cost(self, default_config: FinOpsConfig) -> None:
-        check = EC2RightsizingCheck(config=default_config)
-        cost = check._estimate_monthly_cost("m5.xlarge")
-        assert cost > 0
-        assert cost == pytest.approx(0.192 * 730, rel=0.01)
-
-    def test_estimate_monthly_cost_unknown(self, default_config: FinOpsConfig) -> None:
-        check = EC2RightsizingCheck(config=default_config)
-        assert check._estimate_monthly_cost("unknown.type") == 0.0
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        """Check that run() returns a list (empty for now since logic is TODO)."""
-        check = EC2RightsizingCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-
 class TestNATGatewayCheck:
     """Tests for NAT Gateway check."""
 
     def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
         check = NATGatewayCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-
-class TestSpotCandidatesCheck:
-    """Tests for Spot Instance candidates check."""
-
-    def test_get_spot_discount(self, default_config: FinOpsConfig) -> None:
-        check = SpotCandidatesCheck(config=default_config)
-        assert check._get_spot_discount("m5.xlarge") == 0.65
-        assert check._get_spot_discount("t3.large") == 0.50
-        assert check._get_spot_discount("unknown.type") == 0.60  # default
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        check = SpotCandidatesCheck(config=default_config)
         results = check.run(session=mock_session, region="us-east-1")
         assert isinstance(results, list)
 
@@ -166,32 +118,6 @@ class TestElastiCacheSchedulingCheck:
 
     def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
         check = ElastiCacheSchedulingCheck(config=default_config)
-        results = check.run(session=mock_session, region="us-east-1")
-        assert isinstance(results, list)
-
-
-class TestRDSRightsizingCheck:
-    """Tests for RDS right-sizing check."""
-
-    def test_get_smaller_class(self, default_config: FinOpsConfig) -> None:
-        check = RDSRightsizingCheck(config=default_config)
-        assert check._get_smaller_class("db.r5.2xlarge") == "db.r5.xlarge"
-        assert check._get_smaller_class("db.r5.xlarge") == "db.r5.large"
-        assert check._get_smaller_class("db.r5.large") is None
-
-    def test_estimate_monthly_cost_single_az(self, default_config: FinOpsConfig) -> None:
-        check = RDSRightsizingCheck(config=default_config)
-        cost = check._estimate_monthly_cost("db.r5.xlarge", multi_az=False)
-        assert cost == pytest.approx(0.480 * 730, rel=0.01)
-
-    def test_estimate_monthly_cost_multi_az(self, default_config: FinOpsConfig) -> None:
-        check = RDSRightsizingCheck(config=default_config)
-        single = check._estimate_monthly_cost("db.r5.xlarge", multi_az=False)
-        multi = check._estimate_monthly_cost("db.r5.xlarge", multi_az=True)
-        assert multi == pytest.approx(single * 2, rel=0.01)
-
-    def test_run_returns_list(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        check = RDSRightsizingCheck(config=default_config)
         results = check.run(session=mock_session, region="us-east-1")
         assert isinstance(results, list)
 

@@ -63,12 +63,9 @@ thresholds:
   idle_lb_days: 3            # Flag LBs idle for just 3 days
 
 checks:
-  ec2_rightsizing: true
   nat_gateway: true
-  spot_candidates: false     # Skip Spot check
   unused_resources: true
   elasticache_scheduling: true
-  rds_rightsizing: true
 ```
 
 ```bash
