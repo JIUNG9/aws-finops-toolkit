@@ -153,32 +153,6 @@ class Scanner:
         """
         results = ScanResults()
 
-        # TODO: Use management_profile to call organizations:ListAccounts
-        # For each account, assume role_name and run checks
-        #
-        # session = self.aws_client.get_session(profile=management_profile)
-        # org_client = session.client("organizations")
-        # paginator = org_client.get_paginator("list_accounts")
-        # for page in paginator.paginate():
-        #     for account in page["Accounts"]:
-        #         if account["Status"] != "ACTIVE":
-        #             continue
-        #         account_id = account["Id"]
-        #         account_name = account["Name"]
-        #         assumed_session = self.aws_client.assume_role(
-        #             source_profile=management_profile,
-        #             account_id=account_id,
-        #             role_name=role_name,
-        #         )
-        #         account_results = self._scan_with_session(
-        #             session=assumed_session,
-        #             account_id=account_id,
-        #             account_name=account_name,
-        #             region=region,
-        #             check_names=check_names,
-        #         )
-        #         results.accounts.append(account_results)
-
         console.print("[yellow]Organization scan not yet implemented. Use --profiles instead.[/yellow]")
         return results
 
@@ -197,10 +171,6 @@ class Scanner:
         session = self.aws_client.get_session(profile=profile, region=region)
 
         # Resolve the AWS account ID from STS
-        # TODO: Uncomment when running against real AWS
-        # sts = session.client("sts")
-        # identity = sts.get_caller_identity()
-        # account_id = identity["Account"]
         account_id = "000000000000"  # Placeholder for development
         account_name = profile  # Use profile name as account name for now
 
