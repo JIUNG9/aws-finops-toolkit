@@ -15,10 +15,8 @@ cutting.
 >
 > **All 4 cost checks query AWS; `s3_lifecycle` does so only for buckets with no lifecycle rule.**
 > The checks are `nat_gateway`, `elasticache_scheduling`, `unused_resources` and `s3_lifecycle`.
-> Each is covered by moto-backed tests that assert on real findings. The Intelligent-Tiering,
-> small-object and analytics parts of `s3_lifecycle` have helper logic and tests but return no
-> findings. Checks for EC2 and RDS right-sizing and Spot candidates were removed because they
-> never called AWS.
+> Each is covered by moto-backed tests that assert on real findings. Checks for EC2 and RDS
+> right-sizing and Spot candidates were removed because they never called AWS.
 >
 > Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
 > LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
@@ -94,16 +92,14 @@ finops dashboard --demo                       # Demo mode (no AWS creds)
 ### 4 Cost Checks
 
 All four query AWS and are tested against moto. `s3_lifecycle` reports only buckets with no
-lifecycle rule. Its Intelligent-Tiering, small-object and analytics parts have their thresholds,
-pricing lookups and helper logic under test, with the boto3 calls commented out, so they return
-no findings.
+lifecycle rule; it has no other sub-checks.
 
 | Check | What it finds |
 |-------|--------------|
 | `nat_gateway` | ✅ **live** — NAT Gateways in dev/staging, and unused ones with 0 bytes processed |
 | `unused_resources` | ✅ **live (EBS + EIP + snapshots + LBs + stopped instances)** — unattached EBS volumes, unassociated Elastic IPs, old snapshots and idle ALBs/NLBs, and instances stopped for more than 7 days |
 | `elasticache_scheduling` | ✅ **live** — non-prod clusters and replication groups running 24/7 |
-| `s3_lifecycle` | ✅ **live (no-lifecycle part)** — large S3 buckets without lifecycle policies; the Intelligent-Tiering, small-object and analytics parts are still scaffolded |
+| `s3_lifecycle` | ✅ **live** — large S3 buckets without lifecycle policies |
 
 ### Cloud support
 AWS only. The provider layer has an abstraction, and no other provider is implemented.
@@ -201,17 +197,10 @@ POST /api/v1/incidents                 Record incident + user impact
 
 In order of what unblocks the most:
 
-1. **Wire up the rest of `s3_lifecycle`.** `nat_gateway` set the pattern; `elasticache_scheduling`
-   and the EBS, EIP, snapshot and load balancer parts of `unused_resources` followed it: uncomment the boto3 calls, keep
-   the paginator, and add a `moto`-backed test per check that asserts on actual findings
-   rather than `isinstance(results, list)`. `unused_resources` is now fully wired.
-   CloudWatch is the one thing moto doesn't serve usefully here, so the tests stub that
-   client and leave everything else real. Moto also doesn't paginate DescribeVolumes, so
-   the EBS pagination test uses botocore's Stubber with a two-page NextToken response.
-2. **Pricing from the API.** Several modules carry a hardcoded price table with a
+1. **Pricing from the API.** Several modules carry a hardcoded price table with a
    `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
    instance family isn't in the table.
-3. **`preflight` against live resources.** Same shape as the checks — no AWS calls yet.
+2. **`preflight` against live resources.** Same shape as the checks — no AWS calls yet.
 
 ## Development
 

@@ -37,7 +37,6 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
     "log_retention_prod_days": 365,
     "log_ingestion_threshold_gb": 100,
     "s3_large_bucket_gb": 100,
-    "s3_high_object_count": 1_000_000,
 }
 
 # Default check enable/disable flags
