@@ -101,27 +101,6 @@ class AWSClient:
         # Get a session for the source account
         source_session = self.get_session(profile=source_profile, region=region)
 
-        # TODO: Uncomment for real cross-account access
-        # sts_client = source_session.client("sts", config=DEFAULT_BOTO_CONFIG)
-        # role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
-        # response = sts_client.assume_role(
-        #     RoleArn=role_arn,
-        #     RoleSessionName=session_name,
-        #     DurationSeconds=3600,  # 1 hour
-        # )
-        #
-        # credentials = response["Credentials"]
-        #
-        # assumed_session = boto3.Session(
-        #     aws_access_key_id=credentials["AccessKeyId"],
-        #     aws_secret_access_key=credentials["SecretAccessKey"],
-        #     aws_session_token=credentials["SessionToken"],
-        #     region_name=region,
-        # )
-        #
-        # self._session_cache[cache_key] = assumed_session
-        # return assumed_session
-
         # Placeholder: return source session for development
         return source_session
 
@@ -134,10 +113,6 @@ class AWSClient:
         Returns:
             The 12-digit AWS account ID.
         """
-        # TODO: Uncomment for real AWS calls
-        # sts = session.client("sts", config=DEFAULT_BOTO_CONFIG)
-        # identity = sts.get_caller_identity()
-        # return identity["Account"]
         return "000000000000"
 
     def list_organization_accounts(
@@ -154,19 +129,5 @@ class AWSClient:
             List of dicts with 'id', 'name', 'email' for each active account.
         """
         accounts: list[dict[str, str]] = []
-
-        # TODO: Uncomment for real AWS Organizations calls
-        # session = self.get_session(profile=management_profile)
-        # org_client = session.client("organizations", config=DEFAULT_BOTO_CONFIG)
-        #
-        # paginator = org_client.get_paginator("list_accounts")
-        # for page in paginator.paginate():
-        #     for account in page["Accounts"]:
-        #         if account["Status"] == "ACTIVE":
-        #             accounts.append({
-        #                 "id": account["Id"],
-        #                 "name": account["Name"],
-        #                 "email": account.get("Email", ""),
-        #             })
 
         return accounts

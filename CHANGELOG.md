@@ -8,11 +8,17 @@ Notable changes to this project. Format follows
 
 ### Removed
 
+- The Intelligent-Tiering, small-object and analytics stub methods of `s3_lifecycle`, which only
+  held commented-out boto3 calls and returned no findings, plus the pricing constants and the
+  `s3_high_object_count` threshold they used. `compare_it_vs_lifecycle` stays as a standalone
+  cost helper. Config files that still set `s3_high_object_count` load without error and the key
+  is ignored. The commented-out boto3 code in `aws_client.py` and `scanner.py` is gone too; the
+  placeholders around it behave as before.
 - The `ec2_rightsizing`, `rds_rightsizing` and `spot_candidates` checks, their config flags, the
   three demo findings and 11 tests. None made AWS calls and all returned no findings. Config files
   that still set these flags load without error and the key is ignored. `APPROX_HOURLY_PRICING`
   went with `ec2_rightsizing`; no live check used it. The demo dashboard now shows 4 findings
-  instead of 7. The README counts read 4 of 4 checks querying AWS (`s3_lifecycle` partly).
+  instead of 7. The README counts read 4 of 4 checks querying AWS (`s3_lifecycle` partly; its other parts were removed later).
 - The `vpc_waste` and `cloudwatch_waste` checks (`finops.checks.vpc_waste`,
   `finops.checks.cloudwatch_waste`), their config flags, the two demo findings and 13 tests. Both
   had pricing tables and helper stubs but no AWS calls and returned no findings. Config files that
@@ -45,8 +51,7 @@ Notable changes to this project. Format follows
   Standard storage). Buckets in other regions, buckets below `s3_large_bucket_gb` (default 100),
   buckets with no size metric, and buckets whose lifecycle lookup fails for any reason other
   than "no configuration" are skipped. Savings come from a fixed model (40% Standard, 35% IA,
-  25% Glacier IR after the policy runs), so treat them as an estimate. The Intelligent-Tiering,
-  small-object and analytics parts of that module are still scaffolded.
+  25% Glacier IR after the policy runs), so treat them as an estimate.
 - `unused_resources` now finds long-stopped instances against AWS (`DescribeInstances` filtered
   on `stopped`, then `DescribeVolumes`). The stop time is parsed from `StateTransitionReason`;
   an instance with no timestamp in it is skipped rather than guessed. Instances stopped for

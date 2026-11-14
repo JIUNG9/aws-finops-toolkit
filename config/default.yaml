@@ -18,7 +18,6 @@ thresholds:
   log_retention_prod_days: 365  # Max retention for production log groups
   log_ingestion_threshold_gb: 100   # Flag log groups ingesting more than this GB/month
   s3_large_bucket_gb: 100       # Minimum bucket size (GB) to flag for lifecycle optimization
-  s3_high_object_count: 1000000 # Flag IT buckets with more than this many objects
 
 # AWS accounts to scan. Leave empty to require --profile or --org CLI flags.
 # Supports two formats:

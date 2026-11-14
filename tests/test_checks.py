@@ -19,7 +19,7 @@ from finops.checks.unused_resources import UnusedResourcesCheck
 from finops.checks.elasticache_scheduling import ElastiCacheSchedulingCheck
 from finops.checks.s3_lifecycle import (
     S3LifecycleCheck, S3_STANDARD_PER_GB, S3_STANDARD_IA_PER_GB,
-    S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS, S3_IA_MIN_BILLABLE_SIZE_KB,
+    S3_GLACIER_IR_PER_GB, S3_IT_MONITORING_PER_1000_OBJECTS,
 )
 from finops.config import FinOpsConfig
 
@@ -141,7 +141,6 @@ class TestS3LifecycleCheck:
         assert S3_STANDARD_IA_PER_GB == 0.0125
         assert S3_GLACIER_IR_PER_GB == 0.004
         assert S3_IT_MONITORING_PER_1000_OBJECTS == 0.0025
-        assert S3_IA_MIN_BILLABLE_SIZE_KB == 128
 
     def test_lifecycle_savings_model(self) -> None:
         """Verify lifecycle savings for a 1TB bucket.
@@ -172,28 +171,6 @@ class TestS3LifecycleCheck:
         object_count = 10_000_000
         monitoring_cost = (object_count / 1000) * S3_IT_MONITORING_PER_1000_OBJECTS
         assert monitoring_cost == pytest.approx(25.00, rel=0.01)
-
-    def test_small_object_ia_penalty(self) -> None:
-        """Verify IA penalty for small objects.
-
-        1M objects averaging 20KB each = ~20GB actual
-        IA billed at 128KB min per object: 1M * 128KB = ~122GB
-        Standard cost: 20 GB * $0.023 = $0.46/mo
-        IA cost:       122 GB * $0.0125 = $1.53/mo
-        IA is 3.3x MORE expensive for small objects.
-        """
-        object_count = 1_000_000
-        avg_size_kb = 20
-        actual_gb = (object_count * avg_size_kb * 1024) / (1024 ** 3)
-        billed_gb_ia = (object_count * S3_IA_MIN_BILLABLE_SIZE_KB * 1024) / (1024 ** 3)
-
-        standard_cost = actual_gb * S3_STANDARD_PER_GB
-        ia_cost = billed_gb_ia * S3_STANDARD_IA_PER_GB
-
-        assert actual_gb == pytest.approx(19.07, rel=0.05)
-        assert billed_gb_ia == pytest.approx(122.07, rel=0.05)
-        assert ia_cost > standard_cost  # IA is more expensive
-        assert ia_cost / standard_cost > 3.0  # At least 3x more expensive
 
     def test_compare_it_vs_lifecycle(self, default_config: FinOpsConfig) -> None:
         """Verify IT vs lifecycle comparison for a bucket with many objects.
@@ -233,14 +210,6 @@ class TestS3LifecycleCheck:
         # With low monitoring cost, IT and lifecycle should be close
         # IT monitoring cost is so small it barely matters
         assert result["it_monitoring_cost"] < 1.0
-
-    def test_sub_checks_return_lists(self, default_config: FinOpsConfig, mock_session: MagicMock) -> None:
-        """Verify each sub-check returns a list."""
-        check = S3LifecycleCheck(config=default_config)
-        assert isinstance(check._check_no_lifecycle_policy(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_intelligent_tiering_cost(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_small_objects_ia_penalty(mock_session, "us-east-1"), list)
-        assert isinstance(check._check_no_analytics(mock_session, "us-east-1"), list)
 
 
 class TestRemovedCheckConfig:
