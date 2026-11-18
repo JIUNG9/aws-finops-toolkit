@@ -6,6 +6,17 @@ Notable changes to this project. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `AWSClient.assume_role` now calls STS `AssumeRole` and returns a session with the temporary
+  credentials. It used to return the source profile's own session, so a cross-account scan would
+  have run against the wrong account.
+- `AWSClient.get_account_id` reads the account from STS `GetCallerIdentity`. It used to return
+  `000000000000` for every session, and `finops scan` labelled every account's findings with that ID.
+- `finops scan --profile` / `--profiles`: when STS cannot identify the caller (no or expired
+  credentials), that profile is reported with account ID `unknown` and an error, and no checks run
+  for it. Other profiles still scan. Both STS failures raise `AWSClientError`.
+
 ### Removed
 
 - The Intelligent-Tiering, small-object and analytics stub methods of `s3_lifecycle`, which only

@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 import boto3
 from botocore.config import Config as BotoConfig
+from botocore.exceptions import BotoCoreError, ClientError
 
 
 # Default boto3 config: retry logic and timeouts
@@ -21,6 +22,10 @@ DEFAULT_BOTO_CONFIG = BotoConfig(
     connect_timeout=10,
     read_timeout=30,
 )
+
+
+class AWSClientError(RuntimeError):
+    """Raised when an STS call fails, so a scan never runs under a guessed identity."""
 
 
 class AWSClient:
@@ -98,22 +103,44 @@ class AWSClient:
         if cache_key in self._session_cache:
             return self._session_cache[cache_key]
 
-        # Get a session for the source account
         source_session = self.get_session(profile=source_profile, region=region)
+        role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
 
-        # Placeholder: return source session for development
-        return source_session
+        try:
+            response = source_session.client("sts", config=DEFAULT_BOTO_CONFIG).assume_role(
+                RoleArn=role_arn,
+                RoleSessionName=session_name,
+            )
+        except (BotoCoreError, ClientError) as e:
+            raise AWSClientError(f"Could not assume {role_arn} from profile '{source_profile}': {e}") from e
+
+        creds = response["Credentials"]
+        session = boto3.Session(
+            aws_access_key_id=creds["AccessKeyId"],
+            aws_secret_access_key=creds["SecretAccessKey"],
+            aws_session_token=creds["SessionToken"],
+            region_name=region,
+        )
+        self._session_cache[cache_key] = session
+        return session
 
     def get_account_id(self, session: Any) -> str:
-        """Get the AWS account ID for a session.
+        """Get the AWS account ID for a session from STS GetCallerIdentity.
 
         Args:
             session: A boto3.Session.
 
         Returns:
             The 12-digit AWS account ID.
+
+        Raises:
+            AWSClientError: If STS cannot identify the caller (no or expired credentials).
         """
-        return "000000000000"
+        try:
+            identity = session.client("sts", config=DEFAULT_BOTO_CONFIG).get_caller_identity()
+        except (BotoCoreError, ClientError) as e:
+            raise AWSClientError(f"Could not resolve the AWS account ID: {e}") from e
+        return str(identity["Account"])
 
     def list_organization_accounts(
         self,
