@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 from rich.console import Console
 
-from finops.aws_client import AWSClient
+from finops.aws_client import AWSClient, AWSClientError
 from finops.checks import get_enabled_checks
 from finops.checks.base import CheckResult
 from finops.config import FinOpsConfig
@@ -124,11 +124,22 @@ class Scanner:
 
         for profile in profiles:
             console.print(f"[bold]Scanning profile:[/bold] {profile} ({region})")
-            account_results = self._scan_account(
-                profile=profile,
-                region=region,
-                check_names=check_names,
-            )
+            try:
+                account_results = self._scan_account(
+                    profile=profile,
+                    region=region,
+                    check_names=check_names,
+                )
+            except AWSClientError as e:
+                # No verified identity, so no checks run and nothing is labelled with a guessed account ID.
+                console.print(f"  [red]Skipped: {e}[/red]")
+                account_results = AccountResults(
+                    account_id="unknown",
+                    account_name=profile,
+                    profile=profile,
+                    region=region,
+                    errors=[f"Scan skipped: {e}"],
+                )
             results.accounts.append(account_results)
 
         return results
@@ -171,7 +182,7 @@ class Scanner:
         session = self.aws_client.get_session(profile=profile, region=region)
 
         # Resolve the AWS account ID from STS
-        account_id = "000000000000"  # Placeholder for development
+        account_id = self.aws_client.get_account_id(session)
         account_name = profile  # Use profile name as account name for now
 
         return self._scan_with_session(

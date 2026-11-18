@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-119-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-126-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -20,7 +20,7 @@ cutting.
 >
 > Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
 > LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
-> `pytest --collect-only -q` collects 119 tests.
+> `pytest --collect-only -q` collects 126 tests.
 >
 > Use `finops dashboard --demo` to see the interface. Against a real account, only the
 > live checks produce findings.
