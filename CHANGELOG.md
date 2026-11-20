@@ -19,6 +19,12 @@ Notable changes to this project. Format follows
 
 ### Removed
 
+- The `finops preflight` command, `finops.preflight`, the `preflight:` section of
+  `config/default.yaml`, and `PreflightConfig` / `ServiceConfig` in `finops.config`. The command
+  made no AWS or APM calls (`session` was `None`; every check returned an empty default), so it
+  printed "GO - SAFE TO PROCEED" for any target. Config files that still carry a `preflight:` key
+  load without error and the key is ignored. `.finops-last-preflight.json` is no longer written.
+  The README test count now reads 126, which is what `pytest --collect-only -q` reports.
 - The Intelligent-Tiering, small-object and analytics stub methods of `s3_lifecycle`, which only
   held commented-out boto3 calls and returned no findings, plus the pricing constants and the
   `s3_high_object_count` threshold they used. `compare_it_vs_lifecycle` stays as a standalone
@@ -37,8 +43,7 @@ Notable changes to this project. Format follows
   findings instead of 9. The README counts read 4 of 7 checks live.
 - The `reserved_instances` check (`finops.checks.reserved_instances`), its config flag, demo finding
   and tests. It returned no findings and had no AWS calls. A config file that still sets
-  `reserved_instances` loads without error and the key is ignored. The preflight RI/Savings Plan
-  coverage step is unchanged and is still scaffolded.
+  `reserved_instances` loads without error and the key is ignored.
 - The Azure and GCP provider stubs (`finops.providers.azure`, `finops.providers.gcp`). Every method
   raised `NotImplementedError`. Only AWS is supported; `get_provider("azure")` now raises the same
   "Unknown provider" error as any other unregistered name.

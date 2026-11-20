@@ -83,7 +83,6 @@ Open `http://localhost:8080` to see the dashboard.
 ```bash
 finops scan --profile prod                    # Scan AWS account
 finops scan --profiles dev,staging,prod       # Multi-account scan
-finops preflight --target prod-orders-db      # Pre-flight safety check
 finops report --format html --output report.html
 finops dashboard                              # Launch web UI
 finops dashboard --demo                       # Demo mode (no AWS creds)
@@ -200,7 +199,7 @@ In order of what unblocks the most:
 1. **Pricing from the API.** Several modules carry a hardcoded price table with a
    `TODO: Fall back to AWS Pricing API`. Fine for a demo, wrong the moment a region or
    instance family isn't in the table.
-2. **`preflight` against live resources.** Same shape as the checks — no AWS calls yet.
+2. **A pre-change safety check against live resources.** The old `finops preflight` command was removed because it printed a verdict without querying AWS.
 
 ## Development
 
