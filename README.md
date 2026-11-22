@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-126-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-132-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -20,7 +20,7 @@ cutting.
 >
 > Also working: the FastAPI + HTMX dashboard, the error-budget safety gate, the pluggable
 > LLM backend, the report writers (CSV/XLSX/HTML) and `--demo` mode against fixture data.
-> `pytest --collect-only -q` collects 126 tests.
+> `pytest --collect-only -q` collects 132 tests.
 >
 > Use `finops dashboard --demo` to see the interface. Against a real account, only the
 > live checks produce findings.
@@ -31,13 +31,22 @@ cutting.
 
 Most FinOps tools tell you *what* to cut. They don't tell you *if it's safe*.
 
-**Every recommendation passes a 5-step safety analysis:**
+**Accepting a finding runs a safety analysis.** Setting a finding to `accepted` through the API or
+dashboard runs the steps below and stores the result in `safety_analyses`.
 
-1. **Traffic Analysis** — 1-year traffic patterns, seasonal peaks, growth trends
-2. **Dependency Check** — what services break if this resource fails? Blast radius?
-3. **Error Budget Gate** — if error budget < 50%, all optimizations are blocked
-4. **AI Analysis** — LLM explains risk, suggests timing, provides rollback plan
-5. **User Confirmation** — checklist approval before any action
+1. **Traffic Analysis** — no traffic metrics are collected yet. Resources above $200/month get a
+   `caution`; everything else is reported as `unknown`.
+2. **Dependency Check** — counts the services that the service owning the resource depends on
+   (0 is `safe`, 1-2 `caution`, 3 or more `unsafe`).
+3. **Error Budget Gate** — reads only the error budgets of the service that owns the resource
+   (`service_resources`). A `breached` budget is `unsafe` and blocks the accept with HTTP 409;
+   `warning` or `critical` is `caution`. A resource with no owning service or no budget is `unknown`.
+4. **AI Analysis** — runs only when an LLM is passed in, which the accept path does not do yet, so
+   this step is `unknown` there. An LLM error is recorded in the verdict, not hidden.
+5. **User Confirmation** — checklist stored with the analysis; nothing enforces it yet.
+
+Only `unsafe` blocks. `caution` and `unknown` are stored and let the accept through. The budgets
+come from the database, which nothing fills from a live SLO source yet.
 
 ## Quick Start
 

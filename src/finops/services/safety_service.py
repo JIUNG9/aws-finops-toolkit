@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 
 from finops.db.database import Database
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class SafetyVerdict:
     step: str
-    status: str  # "safe", "caution", "unsafe"
+    status: str  # "safe", "caution", "unsafe", "unknown" (no data), "pending"
     summary: str
     details: dict
 
@@ -46,19 +50,24 @@ async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyRepor
 
     verdicts = []
 
-    # Step 1: Traffic Analysis
-    traffic_verdict = SafetyVerdict(
-        step="traffic_analysis",
-        status="safe",
-        summary="No traffic spike detected in available data",
-        details={"lookback_days": 365, "peak_avg_ratio": 2.1, "trend": "stable"},
-    )
-    # Check if resource has high cost (proxy for high traffic dependency)
+    # Step 1: Traffic Analysis. No traffic metrics are collected yet, so the only
+    # signal is the resource's own monthly cost, used as a rough proxy.
     if finding["current_monthly_cost"] > 200:
-        traffic_verdict.status = "caution"
-        traffic_verdict.summary = (
-            f"High-cost resource (${finding['current_monthly_cost']}/mo)"
-            " — verify traffic patterns before downsize"
+        traffic_verdict = SafetyVerdict(
+            step="traffic_analysis",
+            status="caution",
+            summary=(
+                f"High-cost resource (${finding['current_monthly_cost']}/mo)"
+                " \u2014 verify traffic patterns before downsize"
+            ),
+            details={"source": "cost_proxy"},
+        )
+    else:
+        traffic_verdict = SafetyVerdict(
+            step="traffic_analysis",
+            status="unknown",
+            summary="No traffic data is collected; traffic was not checked",
+            details={"source": "none"},
         )
     verdicts.append(traffic_verdict)
 
@@ -79,38 +88,66 @@ async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyRepor
     )
     verdicts.append(dep_verdict)
 
-    # Step 3: Error Budget Gate
-    error_budgets = await db.fetchall("SELECT * FROM error_budgets WHERE status != 'healthy'")
-    at_risk = [eb for eb in error_budgets if eb["status"] in ("warning", "critical", "breached")]
-    eb_verdict = SafetyVerdict(
-        step="error_budget_gate",
-        status="unsafe" if any(eb["status"] == "breached" for eb in at_risk) else (
-            "caution" if at_risk else "safe"
-        ),
-        summary=f"{len(at_risk)} error budgets at risk" if at_risk else "All error budgets healthy",
-        details={"at_risk_count": len(at_risk), "statuses": [eb["status"] for eb in at_risk]},
+    # Step 3: Error Budget Gate. Only the budgets of the services that own this resource count.
+    service_rows = await db.fetchall(
+        "SELECT DISTINCT service_id FROM service_resources WHERE resource_id = ? AND account_id = ?",
+        (finding["resource_id"], finding["account_id"]),
     )
+    service_ids = [r["service_id"] for r in service_rows]
+    if not service_ids:
+        eb_verdict = SafetyVerdict(
+            step="error_budget_gate",
+            status="unknown",
+            summary="Resource is not mapped to a service; no error budget was checked",
+            details={"service_ids": [], "at_risk_count": 0, "statuses": []},
+        )
+    else:
+        marks = ",".join("?" for _ in service_ids)
+        error_budgets = await db.fetchall(
+            f"SELECT * FROM error_budgets WHERE service_id IN ({marks})", tuple(service_ids)
+        )
+        at_risk = [eb for eb in error_budgets if eb["status"] in ("warning", "critical", "breached")]
+        if not error_budgets:
+            eb_status, eb_summary = "unknown", "The owning service has no error budget"
+        elif any(eb["status"] == "breached" for eb in at_risk):
+            eb_status, eb_summary = "unsafe", f"{len(at_risk)} error budgets at risk for the owning service"
+        elif at_risk:
+            eb_status, eb_summary = "caution", f"{len(at_risk)} error budgets at risk for the owning service"
+        else:
+            eb_status, eb_summary = "safe", "Error budgets of the owning service are healthy"
+        eb_verdict = SafetyVerdict(
+            step="error_budget_gate",
+            status=eb_status,
+            summary=eb_summary,
+            details={
+                "service_ids": service_ids,
+                "at_risk_count": len(at_risk),
+                "statuses": [eb["status"] for eb in at_risk],
+            },
+        )
     verdicts.append(eb_verdict)
 
-    # Step 4: AI Analysis
+    # Step 4: AI Analysis. Without an LLM there is no assessment; a failing LLM is reported, not hidden.
     ai_verdict = SafetyVerdict(
         step="ai_analysis",
-        status="safe",
-        summary="Rule-based assessment: action appears safe given current data",
-        details={"provider": "rule-based"},
+        status="unknown",
+        summary="No LLM configured; no AI assessment was made",
+        details={"provider": "none"},
     )
     if llm:
+        prompt_path = Path(__file__).parent.parent / "llm" / "prompts" / "safety_analysis.txt"
         try:
-            from pathlib import Path
-            prompt_path = Path(__file__).parent.parent / "llm" / "prompts" / "safety_analysis.txt"
-            if prompt_path.exists():
-                prompt = prompt_path.read_text().replace("{{ action_description }}", finding["recommended_action"])
-                prompt = prompt.replace("{{ resource_json }}", json.dumps(dict(finding), default=str))
-                response = await llm.generate(prompt)
-                ai_verdict.summary = response.content[:200]
-                ai_verdict.details["provider"] = response.provider
-        except Exception:
-            pass
+            prompt = prompt_path.read_text().replace("{{ action_description }}", finding["recommended_action"])
+            prompt = prompt.replace("{{ resource_json }}", json.dumps(dict(finding), default=str))
+            response = await llm.generate(prompt)
+        except Exception as exc:
+            logger.warning("Safety AI analysis failed for finding %s: %s", finding_id, exc)
+            ai_verdict.summary = f"AI analysis failed: {type(exc).__name__}"
+            ai_verdict.details = {"provider": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
+        else:
+            ai_verdict.status = "safe"
+            ai_verdict.summary = response.content[:200]
+            ai_verdict.details = {"provider": response.provider}
     verdicts.append(ai_verdict)
 
     # Step 5: User Confirmation (always required)
