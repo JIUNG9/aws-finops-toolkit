@@ -42,6 +42,47 @@ class SafetyReport:
         }
 
 
+async def error_budget_verdict(finding, db: Database) -> SafetyVerdict:
+    """Error budget step: look only at the budgets of the services that own the finding's resource."""
+    service_rows = await db.fetchall(
+        "SELECT DISTINCT service_id FROM service_resources WHERE resource_id = ? AND account_id = ?",
+        (finding["resource_id"], finding["account_id"]),
+    )
+    service_ids = [r["service_id"] for r in service_rows]
+    if not service_ids:
+        eb_verdict = SafetyVerdict(
+            step="error_budget_gate",
+            status="unknown",
+            summary="Resource is not mapped to a service; no error budget was checked",
+            details={"service_ids": [], "at_risk_count": 0, "statuses": []},
+        )
+    else:
+        marks = ",".join("?" for _ in service_ids)
+        error_budgets = await db.fetchall(
+            f"SELECT * FROM error_budgets WHERE service_id IN ({marks})", tuple(service_ids)
+        )
+        at_risk = [eb for eb in error_budgets if eb["status"] in ("warning", "critical", "breached")]
+        if not error_budgets:
+            eb_status, eb_summary = "unknown", "The owning service has no error budget"
+        elif any(eb["status"] == "breached" for eb in at_risk):
+            eb_status, eb_summary = "unsafe", f"{len(at_risk)} error budgets at risk for the owning service"
+        elif at_risk:
+            eb_status, eb_summary = "caution", f"{len(at_risk)} error budgets at risk for the owning service"
+        else:
+            eb_status, eb_summary = "safe", "Error budgets of the owning service are healthy"
+        eb_verdict = SafetyVerdict(
+            step="error_budget_gate",
+            status=eb_status,
+            summary=eb_summary,
+            details={
+                "service_ids": service_ids,
+                "at_risk_count": len(at_risk),
+                "statuses": [eb["status"] for eb in at_risk],
+            },
+        )
+    return eb_verdict
+
+
 async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyReport:
     """Run 5-step safety analysis on a finding before accepting it."""
     finding = await db.fetchone("SELECT * FROM findings WHERE id = ?", (finding_id,))
@@ -89,43 +130,7 @@ async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyRepor
     verdicts.append(dep_verdict)
 
     # Step 3: Error Budget Gate. Only the budgets of the services that own this resource count.
-    service_rows = await db.fetchall(
-        "SELECT DISTINCT service_id FROM service_resources WHERE resource_id = ? AND account_id = ?",
-        (finding["resource_id"], finding["account_id"]),
-    )
-    service_ids = [r["service_id"] for r in service_rows]
-    if not service_ids:
-        eb_verdict = SafetyVerdict(
-            step="error_budget_gate",
-            status="unknown",
-            summary="Resource is not mapped to a service; no error budget was checked",
-            details={"service_ids": [], "at_risk_count": 0, "statuses": []},
-        )
-    else:
-        marks = ",".join("?" for _ in service_ids)
-        error_budgets = await db.fetchall(
-            f"SELECT * FROM error_budgets WHERE service_id IN ({marks})", tuple(service_ids)
-        )
-        at_risk = [eb for eb in error_budgets if eb["status"] in ("warning", "critical", "breached")]
-        if not error_budgets:
-            eb_status, eb_summary = "unknown", "The owning service has no error budget"
-        elif any(eb["status"] == "breached" for eb in at_risk):
-            eb_status, eb_summary = "unsafe", f"{len(at_risk)} error budgets at risk for the owning service"
-        elif at_risk:
-            eb_status, eb_summary = "caution", f"{len(at_risk)} error budgets at risk for the owning service"
-        else:
-            eb_status, eb_summary = "safe", "Error budgets of the owning service are healthy"
-        eb_verdict = SafetyVerdict(
-            step="error_budget_gate",
-            status=eb_status,
-            summary=eb_summary,
-            details={
-                "service_ids": service_ids,
-                "at_risk_count": len(at_risk),
-                "statuses": [eb["status"] for eb in at_risk],
-            },
-        )
-    verdicts.append(eb_verdict)
+    verdicts.append(await error_budget_verdict(finding, db))
 
     # Step 4: AI Analysis. Without an LLM there is no assessment; a failing LLM is reported, not hidden.
     ai_verdict = SafetyVerdict(

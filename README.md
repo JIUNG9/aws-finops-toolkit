@@ -45,6 +45,8 @@ dashboard runs the steps below and stores the result in `safety_analyses`.
    this step is `unknown` there. An LLM error is recorded in the verdict, not hidden.
 5. **User Confirmation** — checklist stored with the analysis; nothing enforces it yet.
 
+`POST /ai/what-if` uses the same budget lookup and returns `error_budget_safe: null` when the status is `unknown`.
+
 Only `unsafe` blocks. `caution` and `unknown` are stored and let the accept through. The budgets
 come from the database, which nothing fills from a live SLO source yet.
 

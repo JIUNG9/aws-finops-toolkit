@@ -13,6 +13,10 @@ Notable changes to this project. Format follows
 - The error budget step looks only at the budgets of the service that owns the finding's resource.
   It used to count every unhealthy budget in the database, so one service's breach blocked
   unrelated findings.
+- `POST /ai/what-if` reads only the error budgets of the service that owns the finding's resource,
+  the same lookup the accept gate uses. It used to mark every finding unsafe when any service's
+  budget in the database was unhealthy. A resource with no owning service or no budget now returns
+  `error_budget_safe: null` and `error_budget_status: "unknown"` instead of "Safe to proceed".
 - The safety analysis no longer reports invented data: the fixed `peak_avg_ratio: 2.1` traffic
   values and the "rule-based assessment: appears safe" AI step are gone. Steps with no data report
   `unknown`. An LLM error is logged and shown in the AI verdict instead of being swallowed.
