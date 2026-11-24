@@ -155,3 +155,43 @@ async def test_llm_error_is_reported_not_swallowed(env):
     assert ai.status == "unknown"
     assert "RuntimeError" in ai.summary
     assert "rate limited" in ai.details["error"]
+
+
+async def what_if(app, fid):
+    from httpx import ASGITransport, AsyncClient
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        return (await c.post("/api/v1/ai/what-if", params={"finding_id": fid})).json()
+
+
+@pytest.mark.asyncio
+async def test_what_if_ignores_other_services_breached_budget(env):
+    app, db = env
+    await add_service(db, "checkout", "nat-1", "healthy")
+    await add_service(db, "billing", "nat-2", "breached")
+    await add_finding(db, "f1", "nat-1")
+    body = await what_if(app, "f1")
+    assert body["error_budget_safe"] is True
+    assert body["error_budget_status"] == "safe"
+    assert body["recommendation"] == "Safe to proceed"
+
+
+@pytest.mark.asyncio
+async def test_what_if_defers_on_own_budget_at_risk(env):
+    app, db = env
+    await add_service(db, "checkout", "nat-1", "warning")
+    await add_finding(db, "f1", "nat-1")
+    body = await what_if(app, "f1")
+    assert body["error_budget_safe"] is False
+    assert body["recommendation"].startswith("Defer")
+
+
+@pytest.mark.asyncio
+async def test_what_if_unmapped_resource_is_unknown_not_safe(env):
+    app, db = env
+    await add_service(db, "billing", "nat-2", "healthy")
+    await add_finding(db, "f1", "nat-9")
+    body = await what_if(app, "f1")
+    assert body["error_budget_safe"] is None
+    assert body["error_budget_status"] == "unknown"
+    assert body["recommendation"].startswith("Unknown")

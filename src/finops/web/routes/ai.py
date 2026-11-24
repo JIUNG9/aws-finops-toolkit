@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from finops.db.database import Database
+from finops.services.safety_service import error_budget_verdict
 from finops.web.deps import get_db
 from finops.web.schemas import AIRecommendationOut
 
@@ -107,9 +108,15 @@ async def what_if_analysis(finding_id: str = "", action: str = "", db: Database 
     if not finding:
         return {"error": "Finding not found", "verdict": "unknown"}
 
-    # Check error budget for related service
-    error_budgets = await db.fetchall("SELECT * FROM error_budgets")
-    budget_ok = all(eb["status"] in ("healthy",) for eb in error_budgets) if error_budgets else True
+    # Only the error budgets of the services that own this resource count.
+    eb = await error_budget_verdict(finding, db)
+    budget_ok = {"safe": True, "caution": False, "unsafe": False}.get(eb.status)
+    if budget_ok is None:
+        recommendation = "Unknown \u2014 no error budget data for the owning service"
+    elif budget_ok:
+        recommendation = "Safe to proceed"
+    else:
+        recommendation = "Defer \u2014 error budget at risk"
 
     savings = finding["estimated_monthly_savings"]
     return {
@@ -118,6 +125,7 @@ async def what_if_analysis(finding_id: str = "", action: str = "", db: Database 
         "projected_monthly_savings": savings,
         "projected_annual_savings": savings * 12,
         "error_budget_safe": budget_ok,
+        "error_budget_status": eb.status,
         "risk_level": "low" if finding["severity"] in ("low", "info") else "medium",
-        "recommendation": "Safe to proceed" if budget_ok else "Defer — error budget at risk",
+        "recommendation": recommendation,
     }
