@@ -6,6 +6,12 @@ Notable changes to this project. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Live error budgets for the safety gate: the `slo` config section maps a service name to a PromQL query
+  that returns the remaining budget ratio. The gate reads Prometheus for those services (stdlib `urllib`,
+  no new dependency). A failed read gives a `caution` verdict, never `safe`.
+
 ### Fixed
 
 - Accepting a finding (`PATCH /findings/{id}` with `status: accepted`) now runs the safety analysis,

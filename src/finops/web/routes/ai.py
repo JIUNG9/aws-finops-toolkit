@@ -9,9 +9,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from finops.config import FinOpsConfig
 from finops.db.database import Database
 from finops.services.safety_service import error_budget_verdict
-from finops.web.deps import get_db
+from finops.web.deps import get_config, get_db
 from finops.web.schemas import AIRecommendationOut
 
 router = APIRouter(tags=["ai"])
@@ -101,7 +102,12 @@ async def update_recommendation(rec_id: str, status: str = "accepted", db: Datab
 
 
 @router.post("/ai/what-if")
-async def what_if_analysis(finding_id: str = "", action: str = "", db: Database = Depends(get_db)):
+async def what_if_analysis(
+    finding_id: str = "",
+    action: str = "",
+    db: Database = Depends(get_db),
+    config: FinOpsConfig = Depends(get_config),
+):
     """Simulate the impact of accepting a recommendation."""
     finding = await db.fetchone("SELECT * FROM findings WHERE id = ?", (finding_id,)) if finding_id else None
 
@@ -109,7 +115,7 @@ async def what_if_analysis(finding_id: str = "", action: str = "", db: Database 
         return {"error": "Finding not found", "verdict": "unknown"}
 
     # Only the error budgets of the services that own this resource count.
-    eb = await error_budget_verdict(finding, db)
+    eb = await error_budget_verdict(finding, db, config.slo)
     budget_ok = {"safe": True, "caution": False, "unsafe": False}.get(eb.status)
     if budget_ok is None:
         recommendation = "Unknown \u2014 no error budget data for the owning service"
