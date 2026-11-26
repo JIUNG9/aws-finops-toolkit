@@ -84,6 +84,14 @@ class DelegateConfig:
 
 
 @dataclass
+class SloConfig:
+    """Live error budget source for the safety gate (Prometheus)."""
+    prometheus_url: str = ""            # empty = use only the error_budgets table
+    timeout_seconds: float = 5.0
+    services: dict[str, str] = field(default_factory=dict)  # service name -> PromQL (remaining budget ratio)
+
+
+@dataclass
 class FinOpsConfig:
     """Parsed FinOps toolkit configuration.
 
@@ -95,6 +103,7 @@ class FinOpsConfig:
         llm: LLM provider settings
         database: Database settings
         delegates: Background worker settings
+        slo: Live error budget source settings
         raw: The raw parsed YAML dict (for extension)
     """
 
@@ -105,6 +114,7 @@ class FinOpsConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     delegates: DelegateConfig = field(default_factory=DelegateConfig)
+    slo: SloConfig = field(default_factory=SloConfig)
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -189,6 +199,14 @@ def load_config(config_path: Optional[Path] = None) -> FinOpsConfig:
         default_schedule=raw_delegates.get("default_schedule", "0 8 * * 1"),
     )
 
+    # Parse the live error budget source
+    raw_slo = raw_config.get("slo") or {}
+    slo_config = SloConfig(
+        prometheus_url=raw_slo.get("prometheus_url", ""),
+        timeout_seconds=float(raw_slo.get("timeout_seconds", 5.0)),
+        services={str(k): str(v) for k, v in (raw_slo.get("services") or {}).items()},
+    )
+
     return FinOpsConfig(
         thresholds=thresholds,
         accounts=normalized_accounts,
@@ -197,5 +215,6 @@ def load_config(config_path: Optional[Path] = None) -> FinOpsConfig:
         llm=llm_config,
         database=db_config,
         delegates=delegate_config,
+        slo=slo_config,
         raw=raw_config,
     )

@@ -40,3 +40,12 @@ checks:
   unused_resources: true
   elasticache_scheduling: true
   s3_lifecycle: true
+
+# Live error budgets for the safety gate (optional). Each query must return exactly one
+# sample: the remaining budget as a ratio (1.0 = untouched, 0 = spent). Services without a
+# query use the error_budgets table.
+# slo:
+#   prometheus_url: http://prometheus.monitoring.svc:9090
+#   timeout_seconds: 5
+#   services:
+#     checkout: 'slo:error_budget_remaining:ratio{service="checkout"}'

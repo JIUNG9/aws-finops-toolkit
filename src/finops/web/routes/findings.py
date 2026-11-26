@@ -6,9 +6,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from finops.config import FinOpsConfig
+
 from finops.db.database import Database
 from finops.services.safety_service import analyze_safety
-from finops.web.deps import get_db
+from finops.web.deps import get_config, get_db
 from finops.web.schemas import FindingOut, FindingUpdate
 
 router = APIRouter(tags=["findings"])
@@ -59,14 +61,19 @@ async def get_finding(finding_id: str, db: Database = Depends(get_db)):
 
 
 @router.patch("/findings/{finding_id}", response_model=FindingOut)
-async def update_finding(finding_id: str, body: FindingUpdate, db: Database = Depends(get_db)):
+async def update_finding(
+    finding_id: str,
+    body: FindingUpdate,
+    db: Database = Depends(get_db),
+    config: FinOpsConfig = Depends(get_config),
+):
     existing = await db.fetchone("SELECT * FROM findings WHERE id = ?", (finding_id,))
     if not existing:
         raise HTTPException(status_code=404, detail="Finding not found")
     if body.status == "accepted" and existing["status"] != "accepted":
         # Accepting a finding runs the safety gate. "unsafe" blocks it; "caution" and
         # "unknown" steps are recorded in safety_analyses and do not block.
-        report = await analyze_safety(finding_id, db)
+        report = await analyze_safety(finding_id, db, slo=config.slo)
         if report.overall == "unsafe":
             raise HTTPException(
                 status_code=409,

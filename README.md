@@ -5,7 +5,7 @@
 [![CI](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/JIUNG9/aws-finops-toolkit/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-132-1a8917)](tests/)
+[![tests](https://img.shields.io/badge/tests-157-1a8917)](tests/)
 
 CLI + web dashboard that puts an SRE gate in front of cost optimization: SLOs, error
 budgets and service dependencies get checked *before* anything is recommended for
@@ -47,8 +47,36 @@ dashboard runs the steps below and stores the result in `safety_analyses`.
 
 `POST /ai/what-if` uses the same budget lookup and returns `error_budget_safe: null` when the status is `unknown`.
 
-Only `unsafe` blocks. `caution` and `unknown` are stored and let the accept through. The budgets
-come from the database, which nothing fills from a live SLO source yet.
+Only `unsafe` blocks. `caution` and `unknown` are stored and let the accept through.
+
+### Live budget source (Prometheus)
+
+By default the budgets come from the `error_budgets` table, which only the API fills. To read a
+service's budget live, give it a PromQL query in the config. The query must return exactly one
+sample: the **remaining** budget as a ratio (1.0 = untouched, 0 = spent).
+
+```yaml
+slo:
+  prometheus_url: http://prometheus.monitoring.svc:9090
+  timeout_seconds: 5
+  services:
+    checkout: 'slo:error_budget_remaining:ratio{service="checkout"}'
+```
+
+The service name is the one in the `services` table. Mapping to a status uses the same cut-offs as
+`POST /error-budgets/{id}/events`: 0 or less is `breached`, up to 0.2 `critical`, up to 0.5 `warning`,
+above that `healthy`.
+
+- A service with a query is read live, and its table rows are ignored.
+- A service without a query keeps using the table.
+- If the read fails (timeout, HTTP error, zero or several series, NaN), the step is `caution` and the
+  verdict names the service. It is never `safe`, and it does not block.
+
+Example: `checkout` reports 0.12 remaining. That is `critical`, so accepting a `checkout` finding gets a
+`caution` verdict and goes through. At 0.0 the verdict is `unsafe` and the accept returns 409.
+
+Only an instant query against `/api/v1/query` is used. The URL must be `http://` or `https://`, and there is no auth
+support yet, so point it at an endpoint reachable without credentials.
 
 ## Quick Start
 

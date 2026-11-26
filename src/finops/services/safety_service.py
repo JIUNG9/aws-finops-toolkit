@@ -8,7 +8,9 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from finops.config import SloConfig
 from finops.db.database import Database
+from finops.services.slo_source import SloSourceError, remaining_budget_status
 
 logger = logging.getLogger(__name__)
 
@@ -42,48 +44,81 @@ class SafetyReport:
         }
 
 
-async def error_budget_verdict(finding, db: Database) -> SafetyVerdict:
-    """Error budget step: look only at the budgets of the services that own the finding's resource."""
+async def error_budget_verdict(finding, db: Database, slo: SloConfig | None = None) -> SafetyVerdict:
+    """Error budget step: look only at the budgets of the services that own the finding's resource.
+
+    A service with a query in `slo.services` is read live from Prometheus and its table rows are
+    ignored. If that read fails the step is `caution`, never `safe`.
+    """
     service_rows = await db.fetchall(
-        "SELECT DISTINCT service_id FROM service_resources WHERE resource_id = ? AND account_id = ?",
+        "SELECT DISTINCT sr.service_id, s.name AS service_name FROM service_resources sr"
+        " LEFT JOIN services s ON s.id = sr.service_id"
+        " WHERE sr.resource_id = ? AND sr.account_id = ?",
         (finding["resource_id"], finding["account_id"]),
     )
     service_ids = [r["service_id"] for r in service_rows]
     if not service_ids:
-        eb_verdict = SafetyVerdict(
+        return SafetyVerdict(
             step="error_budget_gate",
             status="unknown",
             summary="Resource is not mapped to a service; no error budget was checked",
             details={"service_ids": [], "at_risk_count": 0, "statuses": []},
         )
+
+    all_statuses: list[str] = []
+    sources: dict[str, str] = {}
+    live_errors: dict[str, str] = {}
+    for row in service_rows:
+        name = row["service_name"]
+        if slo and slo.prometheus_url and name in slo.services:
+            try:
+                status, remaining = await remaining_budget_status(slo, name)
+            except SloSourceError as exc:
+                logger.warning("Live error budget read failed for service %s: %s", name, exc)
+                live_errors[name] = str(exc)
+                sources[name] = "prometheus (failed)"
+            else:
+                all_statuses.append(status)
+                sources[name] = f"prometheus (remaining {remaining:.2f})"
+            continue
+        budgets = await db.fetchall(
+            "SELECT status FROM error_budgets WHERE service_id = ?", (row["service_id"],)
+        )
+        if budgets:
+            sources[name or row["service_id"]] = "database"
+        all_statuses.extend(b["status"] for b in budgets)
+
+    at_risk = [st for st in all_statuses if st in ("warning", "critical", "breached")]
+    if "breached" in at_risk:
+        status, summary = "unsafe", f"{len(at_risk)} error budgets at risk for the owning service"
+    elif at_risk or live_errors:
+        parts = []
+        if at_risk:
+            parts.append(f"{len(at_risk)} error budgets at risk for the owning service")
+        if live_errors:
+            parts.append(f"live budget read failed for {', '.join(sorted(live_errors))}")
+        status, summary = "caution", "; ".join(parts)
+    elif not all_statuses:
+        status, summary = "unknown", "The owning service has no error budget"
     else:
-        marks = ",".join("?" for _ in service_ids)
-        error_budgets = await db.fetchall(
-            f"SELECT * FROM error_budgets WHERE service_id IN ({marks})", tuple(service_ids)
-        )
-        at_risk = [eb for eb in error_budgets if eb["status"] in ("warning", "critical", "breached")]
-        if not error_budgets:
-            eb_status, eb_summary = "unknown", "The owning service has no error budget"
-        elif any(eb["status"] == "breached" for eb in at_risk):
-            eb_status, eb_summary = "unsafe", f"{len(at_risk)} error budgets at risk for the owning service"
-        elif at_risk:
-            eb_status, eb_summary = "caution", f"{len(at_risk)} error budgets at risk for the owning service"
-        else:
-            eb_status, eb_summary = "safe", "Error budgets of the owning service are healthy"
-        eb_verdict = SafetyVerdict(
-            step="error_budget_gate",
-            status=eb_status,
-            summary=eb_summary,
-            details={
-                "service_ids": service_ids,
-                "at_risk_count": len(at_risk),
-                "statuses": [eb["status"] for eb in at_risk],
-            },
-        )
-    return eb_verdict
+        status, summary = "safe", "Error budgets of the owning service are healthy"
+    return SafetyVerdict(
+        step="error_budget_gate",
+        status=status,
+        summary=summary,
+        details={
+            "service_ids": service_ids,
+            "at_risk_count": len(at_risk),
+            "statuses": at_risk,
+            "sources": sources,
+            "live_errors": live_errors,
+        },
+    )
 
 
-async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyReport:
+async def analyze_safety(
+    finding_id: str, db: Database, llm=None, slo: SloConfig | None = None
+) -> SafetyReport:
     """Run 5-step safety analysis on a finding before accepting it."""
     finding = await db.fetchone("SELECT * FROM findings WHERE id = ?", (finding_id,))
     if not finding:
@@ -130,7 +165,7 @@ async def analyze_safety(finding_id: str, db: Database, llm=None) -> SafetyRepor
     verdicts.append(dep_verdict)
 
     # Step 3: Error Budget Gate. Only the budgets of the services that own this resource count.
-    verdicts.append(await error_budget_verdict(finding, db))
+    verdicts.append(await error_budget_verdict(finding, db, slo))
 
     # Step 4: AI Analysis. Without an LLM there is no assessment; a failing LLM is reported, not hidden.
     ai_verdict = SafetyVerdict(
