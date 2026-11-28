@@ -197,9 +197,9 @@ class BudgetSnapshotOut(BaseModel):
 
 class CostOverview(BaseModel):
     current_period_cost: float
-    previous_period_cost: float
-    delta: float
-    delta_pct: float
+    previous_period_cost: Optional[float]
+    delta: Optional[float]
+    delta_pct: Optional[float]
     total_savings_found: float
 
 

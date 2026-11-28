@@ -14,6 +14,9 @@ Notable changes to this project. Format follows
 
 ### Fixed
 
+- `GET /costs/overview` compares the latest scan with the one before it. `previous_period_cost`, `delta`
+  and `delta_pct` were fixed at 0. They are now `null` when there is no earlier scan, and `delta_pct`
+  is `null` when the earlier scan's cost is 0.
 - Accepting a finding (`PATCH /findings/{id}` with `status: accepted`) now runs the safety analysis,
   and an `unsafe` result returns HTTP 409 without changing the finding. Nothing called it before.
 - The error budget step looks only at the budgets of the service that owns the finding's resource.
