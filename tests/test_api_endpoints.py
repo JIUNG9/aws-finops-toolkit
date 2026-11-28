@@ -106,6 +106,37 @@ class TestCostsAPI:
         assert r.status_code == 200
         assert "total_savings_found" in r.json()
 
+    @pytest.mark.asyncio
+    async def test_overview_has_no_delta_with_one_scan(self, client):
+        body = (await client.get("/api/v1/costs/overview")).json()
+        assert body["previous_period_cost"] is None
+        assert body["delta"] is None
+        assert body["delta_pct"] is None
+
+    @pytest.mark.asyncio
+    async def test_overview_compares_with_previous_scan(self, app_with_db, client):
+        db = app_with_db.state.db
+        account_id = (await db.fetchone("SELECT account_id FROM scans LIMIT 1"))["account_id"]
+        first = await db.fetchone("SELECT id FROM scans LIMIT 1")
+        before = (await client.get("/api/v1/costs/overview")).json()["current_period_cost"]
+        await db.execute(
+            "INSERT INTO scans (id, account_id, status) VALUES ('scan-2', ?, 'completed')",
+            (account_id,),
+        )
+        await db.execute(
+            """INSERT INTO findings (id, scan_id, account_id, check_name, resource_type, resource_id,
+            current_monthly_cost, estimated_monthly_savings) VALUES ('f-2', 'scan-2', ?, 'nat_gateway',
+            'nat', 'nat-1', ?, 10)""",
+            (account_id, before * 2),
+        )
+        await db.commit()
+        body = (await client.get("/api/v1/costs/overview")).json()
+        assert first["id"] != "scan-2"
+        assert body["current_period_cost"] == before * 2
+        assert body["previous_period_cost"] == before
+        assert body["delta"] == before
+        assert body["delta_pct"] == 100.0
+
 
 class TestServicesAPI:
     @pytest.mark.asyncio

@@ -225,7 +225,7 @@ POST /api/v1/accounts                  Add cloud account
 POST /api/v1/scans                     Trigger scan
 GET  /api/v1/findings                  List findings (filterable)
 POST /api/v1/error-budgets             Set SLO target
-GET  /api/v1/costs/overview            Cost summary
+GET  /api/v1/costs/overview            Latest scan totals vs the scan before it
 POST /api/v1/ai/analyze                Run AI analysis
 GET  /api/v1/services/dependency-graph D3.js graph data
 POST /api/v1/incidents                 Record incident + user impact
